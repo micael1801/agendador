@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
 
 interface Servico {
@@ -48,19 +47,29 @@ export default function AgendarPage() {
   const [atendentes, setAtendentes] = useState<Atendente[]>([])
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string>("")
 
-  // Carregar serviços ao montar o componente
+  // Dados mockados para demonstração
   useEffect(() => {
-    loadServicos()
+    setServicos([
+      { id: 1, nome: "Corte Feminino", preco: 45, duracaoMinutos: 45, descricao: "Corte personalizado" },
+      { id: 2, nome: "Corte Masculino", preco: 25, duracaoMinutos: 30, descricao: "Corte tradicional" },
+      { id: 3, nome: "Coloração", preco: 120, duracaoMinutos: 120, descricao: "Coloração completa" },
+      { id: 4, nome: "Escova", preco: 35, duracaoMinutos: 40, descricao: "Escova modeladora" },
+      { id: 5, nome: "Hidratação", preco: 60, duracaoMinutos: 60, descricao: "Tratamento hidratante" },
+      { id: 6, nome: "Manicure", preco: 20, duracaoMinutos: 30, descricao: "Cuidados para as unhas" },
+    ])
+
+    setAtendentes([
+      { id: 1, nome: "Maria Silva", especialidades: ["Corte Feminino", "Coloração", "Escova"], corAgenda: "#ec4899" },
+      {
+        id: 2,
+        nome: "Ana Costa",
+        especialidades: ["Corte Feminino", "Corte Masculino", "Penteados"],
+        corAgenda: "#8b5cf6",
+      },
+      { id: 3, nome: "Julia Santos", especialidades: ["Manicure", "Pedicure"], corAgenda: "#10b981" },
+    ])
   }, [])
-
-  // Carregar atendentes quando serviço for selecionado
-  useEffect(() => {
-    if (selectedService) {
-      loadAtendentes(selectedService.id)
-    }
-  }, [selectedService])
 
   // Gerar horários disponíveis quando serviço, atendente e data forem selecionados
   useEffect(() => {
@@ -68,59 +77,6 @@ export default function AgendarPage() {
       generateAvailableSlots()
     }
   }, [selectedService, selectedAtendente, selectedDate])
-
-  const loadServicos = async () => {
-    try {
-      const response = await fetch("/api/servicos")
-      if (response.ok) {
-        const data = await response.json()
-        console.log("Serviços carregados:", data)
-        setServicos(data)
-      } else {
-        throw new Error("Erro ao carregar serviços")
-      }
-    } catch (error) {
-      console.error("Erro ao carregar serviços:", error)
-      // Fallback para dados mockados
-      setServicos([
-        { id: 1, nome: "Corte Feminino", preco: 45, duracaoMinutos: 45, descricao: "Corte personalizado" },
-        { id: 2, nome: "Corte Masculino", preco: 25, duracaoMinutos: 30, descricao: "Corte tradicional" },
-        { id: 3, nome: "Coloração", preco: 120, duracaoMinutos: 120, descricao: "Coloração completa" },
-        { id: 4, nome: "Escova", preco: 35, duracaoMinutos: 40, descricao: "Escova modeladora" },
-        { id: 5, nome: "Hidratação", preco: 60, duracaoMinutos: 60, descricao: "Tratamento hidratante" },
-        { id: 6, nome: "Manicure", preco: 20, duracaoMinutos: 30, descricao: "Cuidados para as unhas" },
-      ])
-    }
-  }
-
-  const loadAtendentes = async (servicoId: number) => {
-    try {
-      setLoading(true)
-      const response = await fetch(`/api/atendentes?servicoId=${servicoId}`)
-      if (response.ok) {
-        const data = await response.json()
-        console.log("Atendentes carregados:", data)
-        setAtendentes(data)
-      } else {
-        throw new Error("Erro ao carregar atendentes")
-      }
-    } catch (error) {
-      console.error("Erro ao carregar atendentes:", error)
-      // Fallback para dados mockados
-      setAtendentes([
-        { id: 1, nome: "Maria Silva", especialidades: ["Corte Feminino", "Coloração", "Escova"], corAgenda: "#ec4899" },
-        {
-          id: 2,
-          nome: "Ana Costa",
-          especialidades: ["Corte Feminino", "Corte Masculino", "Penteados"],
-          corAgenda: "#8b5cf6",
-        },
-        { id: 3, nome: "Julia Santos", especialidades: ["Manicure", "Pedicure"], corAgenda: "#10b981" },
-      ])
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const generateAvailableSlots = () => {
     // Simular horários disponíveis (8h às 18h com intervalos de 30min)
@@ -141,20 +97,13 @@ export default function AgendarPage() {
   }
 
   const handleServiceSelect = (servico: Servico) => {
-    console.log("Serviço selecionado:", servico)
     setSelectedService(servico)
     setSelectedAtendente(null) // Reset atendente quando muda serviço
-    setSelectedDate("")
-    setSelectedTime("")
-    setError("")
     setStep(2)
   }
 
   const handleAtendenteSelect = (atendente: Atendente) => {
-    console.log("Atendente selecionado:", atendente)
     setSelectedAtendente(atendente)
-    setSelectedDate("")
-    setSelectedTime("")
     setStep(3)
   }
 
@@ -170,39 +119,16 @@ export default function AgendarPage() {
   }
 
   const handleSubmit = async () => {
-    if (!selectedService || !selectedAtendente || !selectedDate || !selectedTime) {
-      setError("Dados incompletos para o agendamento")
-      return
-    }
-
     setLoading(true)
-    setError("")
 
     try {
-      const response = await fetch("/api/agendamentos", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          servicoId: selectedService.id,
-          atendenteId: selectedAtendente.id,
-          dataAgendamento: selectedDate,
-          horaInicio: selectedTime,
-          clienteData: clientData,
-        }),
-      })
+      // Aqui você faria a chamada para a API para criar o agendamento
+      await new Promise((resolve) => setTimeout(resolve, 2000)) // Simular delay
 
-      const result = await response.json()
-
-      if (response.ok) {
-        setStep(6)
-      } else {
-        setError(result.error || "Erro ao criar agendamento")
-      }
+      // Redirecionar para página de confirmação ou mostrar sucesso
+      setStep(6)
     } catch (error) {
       console.error("Erro ao agendar:", error)
-      setError("Erro de conexão. Tente novamente.")
     } finally {
       setLoading(false)
     }
@@ -210,20 +136,7 @@ export default function AgendarPage() {
 
   const getFilteredAtendentes = () => {
     if (!selectedService) return []
-
-    // Filtrar atendentes que têm o serviço selecionado em suas especialidades
-    const filtered = atendentes.filter((atendente) =>
-      atendente.especialidades.some(
-        (esp) =>
-          esp.toLowerCase().includes(selectedService.nome.toLowerCase()) ||
-          selectedService.nome.toLowerCase().includes(esp.toLowerCase()),
-      ),
-    )
-
-    console.log("Atendentes filtrados:", filtered)
-
-    // Se não encontrou nenhum atendente específico, retornar todos
-    return filtered.length > 0 ? filtered : atendentes
+    return atendentes.filter((atendente) => atendente.especialidades.includes(selectedService.nome))
   }
 
   const getMinDate = () => {
@@ -297,12 +210,6 @@ export default function AgendarPage() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {error && (
-          <Alert className="mb-6 max-w-2xl mx-auto">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
         {/* Step 1: Escolher Serviço */}
         {step === 1 && (
           <div className="max-w-4xl mx-auto">
@@ -340,57 +247,37 @@ export default function AgendarPage() {
                 Para o serviço: <strong>{selectedService.nome}</strong>
               </p>
             </div>
-
-            {loading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Carregando profissionais...</p>
-              </div>
-            ) : getFilteredAtendentes().length > 0 ? (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {getFilteredAtendentes().map((atendente) => (
-                  <Card
-                    key={atendente.id}
-                    className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-pink-200"
-                    onClick={() => handleAtendenteSelect(atendente)}
-                  >
-                    <CardHeader className="text-center">
-                      <div
-                        className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-white font-bold text-xl"
-                        style={{ backgroundColor: atendente.corAgenda }}
-                      >
-                        {atendente.nome
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {getFilteredAtendentes().map((atendente) => (
+                <Card
+                  key={atendente.id}
+                  className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-pink-200"
+                  onClick={() => handleAtendenteSelect(atendente)}
+                >
+                  <CardHeader className="text-center">
+                    <div
+                      className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-white font-bold text-xl"
+                      style={{ backgroundColor: atendente.corAgenda }}
+                    >
+                      {atendente.nome
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
+                    </div>
+                    <CardTitle>{atendente.nome}</CardTitle>
+                    <CardDescription>
+                      <div className="flex flex-wrap gap-1 justify-center mt-2">
+                        {atendente.especialidades.map((esp, index) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {esp}
+                          </Badge>
+                        ))}
                       </div>
-                      <CardTitle>{atendente.nome}</CardTitle>
-                      <CardDescription>
-                        <div className="flex flex-wrap gap-1 justify-center mt-2">
-                          {atendente.especialidades.map((esp, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
-                              {esp}
-                            </Badge>
-                          ))}
-                        </div>
-                      </CardDescription>
-                    </CardHeader>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="text-center py-8">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum profissional disponível</h3>
-                  <p className="text-gray-600">
-                    Não encontramos profissionais disponíveis para este serviço no momento.
-                  </p>
-                  <Button onClick={() => setStep(1)} variant="outline" className="mt-4">
-                    Escolher outro serviço
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
           </div>
         )}
 
@@ -607,18 +494,7 @@ export default function AgendarPage() {
                       <Button asChild className="flex-1">
                         <Link href="/">Voltar ao Início</Link>
                       </Button>
-                      <Button
-                        variant="outline"
-                        className="flex-1 bg-transparent"
-                        onClick={() => {
-                          setStep(1)
-                          setSelectedService(null)
-                          setSelectedAtendente(null)
-                          setSelectedDate("")
-                          setSelectedTime("")
-                          setClientData({ nome: "", telefone: "", email: "", observacoes: "" })
-                        }}
-                      >
+                      <Button variant="outline" className="flex-1 bg-transparent">
                         Agendar Novamente
                       </Button>
                     </div>
