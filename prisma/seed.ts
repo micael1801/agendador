@@ -1,297 +1,187 @@
 import { PrismaClient } from "@prisma/client"
-import { hashPassword } from "../lib/auth"
+import bcrypt from "bcryptjs"
 
 const prisma = new PrismaClient()
 
 async function main() {
   console.log("🌱 Iniciando seed do banco de dados...")
 
-  // Criar empresa
-  const empresa = await prisma.empresa.upsert({
-    where: { id: 1 },
-    update: {},
-    create: {
-      id: 1,
-      nome: "Salão Exemplo",
-      slogan: "Beleza e bem-estar",
-      telefone: "(11) 99999-9999",
-      whatsapp: "(11) 99999-9999",
-      email: "contato@salaoexemplo.com",
-      endereco: "Rua das Flores, 123 - Centro",
-      corPrimaria: "#ec4899",
-      corSecundaria: "#9333ea",
+  // Limpar dados existentes
+  await prisma.agendamento.deleteMany()
+  await prisma.atendente.deleteMany()
+  await prisma.servico.deleteMany()
+  await prisma.usuario.deleteMany()
+
+  console.log("🗑️ Dados existentes removidos")
+
+  // Criar usuários
+  const adminPassword = await bcrypt.hash("123456", 10)
+  const mariaPassword = await bcrypt.hash("123456", 10)
+  const anaPassword = await bcrypt.hash("123456", 10)
+  const juliaPassword = await bcrypt.hash("123456", 10)
+
+  const admin = await prisma.usuario.create({
+    data: {
+      nome: "Administrador",
+      email: "admin@salao.com",
+      senha: adminPassword,
+      tipo: "ADMIN",
     },
   })
 
-  console.log("✅ Empresa criada")
+  const maria = await prisma.usuario.create({
+    data: {
+      nome: "Maria Silva",
+      email: "maria@salao.com",
+      senha: mariaPassword,
+      tipo: "ATENDENTE",
+    },
+  })
+
+  const ana = await prisma.usuario.create({
+    data: {
+      nome: "Ana Santos",
+      email: "ana@salao.com",
+      senha: anaPassword,
+      tipo: "ATENDENTE",
+    },
+  })
+
+  const julia = await prisma.usuario.create({
+    data: {
+      nome: "Julia Costa",
+      email: "julia@salao.com",
+      senha: juliaPassword,
+      tipo: "ATENDENTE",
+    },
+  })
+
+  console.log("👥 Usuários criados")
 
   // Criar serviços
-  const servicos = await Promise.all([
-    prisma.servico.upsert({
-      where: { id: 1 },
-      update: {},
-      create: {
-        id: 1,
-        empresaId: empresa.id,
-        nome: "Corte Feminino",
-        descricao: "Corte moderno e estiloso",
-        preco: 45.0,
-        duracaoMinutos: 60,
-        cor: "#ec4899",
-        ativo: true,
-      },
-    }),
-    prisma.servico.upsert({
-      where: { id: 2 },
-      update: {},
-      create: {
-        id: 2,
-        empresaId: empresa.id,
-        nome: "Corte Masculino",
-        descricao: "Corte clássico e moderno",
-        preco: 25.0,
-        duracaoMinutos: 30,
-        cor: "#3b82f6",
-        ativo: true,
-      },
-    }),
-    prisma.servico.upsert({
-      where: { id: 3 },
-      update: {},
-      create: {
-        id: 3,
-        empresaId: empresa.id,
-        nome: "Escova",
-        descricao: "Escova modeladora",
-        preco: 35.0,
-        duracaoMinutos: 45,
-        cor: "#10b981",
-        ativo: true,
-      },
-    }),
-    prisma.servico.upsert({
-      where: { id: 4 },
-      update: {},
-      create: {
-        id: 4,
-        empresaId: empresa.id,
-        nome: "Coloração",
-        descricao: "Coloração completa",
-        preco: 120.0,
-        duracaoMinutos: 120,
-        cor: "#f59e0b",
-        ativo: true,
-      },
-    }),
-    prisma.servico.upsert({
-      where: { id: 5 },
-      update: {},
-      create: {
-        id: 5,
-        empresaId: empresa.id,
-        nome: "Manicure",
-        descricao: "Cuidados com as unhas",
-        preco: 20.0,
-        duracaoMinutos: 45,
-        cor: "#ef4444",
-        ativo: true,
-      },
-    }),
-  ])
+  const corte = await prisma.servico.create({
+    data: {
+      nome: "Corte de Cabelo",
+      duracao: 60,
+      preco: 50.0,
+    },
+  })
 
-  console.log("✅ Serviços criados")
+  const escova = await prisma.servico.create({
+    data: {
+      nome: "Escova",
+      duracao: 45,
+      preco: 35.0,
+    },
+  })
+
+  const manicure = await prisma.servico.create({
+    data: {
+      nome: "Manicure",
+      duracao: 60,
+      preco: 25.0,
+    },
+  })
+
+  const pedicure = await prisma.servico.create({
+    data: {
+      nome: "Pedicure",
+      duracao: 60,
+      preco: 30.0,
+    },
+  })
+
+  const coloracao = await prisma.servico.create({
+    data: {
+      nome: "Coloração",
+      duracao: 120,
+      preco: 80.0,
+    },
+  })
+
+  console.log("💄 Serviços criados")
 
   // Criar atendentes
-  const atendentes = await Promise.all([
-    prisma.atendente.upsert({
-      where: { id: 1 },
-      update: {},
-      create: {
-        id: 1,
-        empresaId: empresa.id,
-        nome: "Maria Silva",
-        telefone: "(11) 98888-8888",
-        email: "maria@salaoexemplo.com",
-        especialidades: ["Corte Feminino", "Escova", "Coloração"],
-        corAgenda: "#ec4899",
-        ativo: true,
-      },
-    }),
-    prisma.atendente.upsert({
-      where: { id: 2 },
-      update: {},
-      create: {
-        id: 2,
-        empresaId: empresa.id,
-        nome: "Ana Costa",
-        telefone: "(11) 97777-7777",
-        email: "ana@salaoexemplo.com",
-        especialidades: ["Corte Feminino", "Corte Masculino", "Escova"],
-        corAgenda: "#3b82f6",
-        ativo: true,
-      },
-    }),
-    prisma.atendente.upsert({
-      where: { id: 3 },
-      update: {},
-      create: {
-        id: 3,
-        empresaId: empresa.id,
-        nome: "Julia Santos",
-        telefone: "(11) 96666-6666",
-        email: "julia@salaoexemplo.com",
-        especialidades: ["Manicure", "Coloração"],
-        corAgenda: "#10b981",
-        ativo: true,
-      },
-    }),
-  ])
+  const atendenteMariaData = await prisma.atendente.create({
+    data: {
+      usuarioId: maria.id,
+      especialidades: ["Corte de Cabelo", "Escova", "Coloração"],
+      cor: "#FF6B6B",
+    },
+  })
 
-  console.log("✅ Atendentes criados")
+  const atendenteAnaData = await prisma.atendente.create({
+    data: {
+      usuarioId: ana.id,
+      especialidades: ["Manicure", "Pedicure"],
+      cor: "#4ECDC4",
+    },
+  })
 
-  // Criar usuários
-  const adminPassword = await hashPassword("123456")
-  const mariaPassword = await hashPassword("123456")
-  const anaPassword = await hashPassword("123456")
-  const juliaPassword = await hashPassword("123456")
+  const atendenteJuliaData = await prisma.atendente.create({
+    data: {
+      usuarioId: julia.id,
+      especialidades: ["Corte de Cabelo", "Escova", "Manicure"],
+      cor: "#45B7D1",
+    },
+  })
 
-  const usuarios = await Promise.all([
-    prisma.usuario.upsert({
-      where: { email: "admin@salao.com" },
-      update: {},
-      create: {
-        empresaId: empresa.id,
-        nome: "Administrador",
-        email: "admin@salao.com",
-        senhaHash: adminPassword,
-        tipoUsuario: "admin",
-        ativo: true,
-      },
-    }),
-    prisma.usuario.upsert({
-      where: { email: "maria@salao.com" },
-      update: {},
-      create: {
-        empresaId: empresa.id,
-        nome: "Maria Silva",
-        email: "maria@salao.com",
-        senhaHash: mariaPassword,
-        tipoUsuario: "atendente",
-        atendenteId: atendentes[0].id,
-        ativo: true,
-      },
-    }),
-    prisma.usuario.upsert({
-      where: { email: "ana@salao.com" },
-      update: {},
-      create: {
-        empresaId: empresa.id,
-        nome: "Ana Costa",
-        email: "ana@salao.com",
-        senhaHash: anaPassword,
-        tipoUsuario: "atendente",
-        atendenteId: atendentes[1].id,
-        ativo: true,
-      },
-    }),
-    prisma.usuario.upsert({
-      where: { email: "julia@salao.com" },
-      update: {},
-      create: {
-        empresaId: empresa.id,
-        nome: "Julia Santos",
-        email: "julia@salao.com",
-        senhaHash: juliaPassword,
-        tipoUsuario: "atendente",
-        atendenteId: atendentes[2].id,
-        ativo: true,
-      },
-    }),
-  ])
-
-  console.log("✅ Usuários criados")
-
-  // Criar alguns clientes de exemplo
-  const clientes = await Promise.all([
-    prisma.cliente.upsert({
-      where: { id: 1 },
-      update: {},
-      create: {
-        id: 1,
-        empresaId: empresa.id,
-        nome: "João Silva",
-        telefone: "(11) 95555-5555",
-        email: "joao@email.com",
-      },
-    }),
-    prisma.cliente.upsert({
-      where: { id: 2 },
-      update: {},
-      create: {
-        id: 2,
-        empresaId: empresa.id,
-        nome: "Carla Oliveira",
-        telefone: "(11) 94444-4444",
-        email: "carla@email.com",
-      },
-    }),
-  ])
-
-  console.log("✅ Clientes criados")
+  console.log("💅 Atendentes criados")
 
   // Criar alguns agendamentos de exemplo
   const hoje = new Date()
   const amanha = new Date(hoje)
   amanha.setDate(hoje.getDate() + 1)
 
-  await Promise.all([
-    prisma.agendamento.upsert({
-      where: { id: 1 },
-      update: {},
-      create: {
-        id: 1,
-        empresaId: empresa.id,
-        clienteId: clientes[0].id,
-        atendenteId: atendentes[0].id,
-        servicoId: servicos[0].id,
-        dataAgendamento: hoje,
-        horaInicio: "09:00",
-        horaFim: "10:00",
-        valor: servicos[0].preco,
-        status: "agendado",
-      },
-    }),
-    prisma.agendamento.upsert({
-      where: { id: 2 },
-      update: {},
-      create: {
-        id: 2,
-        empresaId: empresa.id,
-        clienteId: clientes[1].id,
-        atendenteId: atendentes[1].id,
-        servicoId: servicos[1].id,
-        dataAgendamento: amanha,
-        horaInicio: "14:00",
-        horaFim: "14:30",
-        valor: servicos[1].preco,
-        status: "agendado",
-      },
-    }),
-  ])
+  await prisma.agendamento.create({
+    data: {
+      clienteNome: "João Silva",
+      clienteTelefone: "(11) 99999-1111",
+      clienteEmail: "joao@email.com",
+      servicoId: corte.id,
+      atendenteId: atendenteMariaData.id,
+      dataHora: new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 9, 0),
+      status: "CONFIRMADO",
+    },
+  })
 
-  console.log("✅ Agendamentos criados")
+  await prisma.agendamento.create({
+    data: {
+      clienteNome: "Maria Oliveira",
+      clienteTelefone: "(11) 99999-2222",
+      clienteEmail: "maria.oliveira@email.com",
+      servicoId: manicure.id,
+      atendenteId: atendenteAnaData.id,
+      dataHora: new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 14, 0),
+      status: "CONFIRMADO",
+    },
+  })
 
-  console.log("🎉 Seed concluído com sucesso!")
-  console.log("\n📋 Credenciais de acesso:")
-  console.log("👤 Admin: admin@salao.com / 123456")
-  console.log("👤 Maria: maria@salao.com / 123456")
-  console.log("👤 Ana: ana@salao.com / 123456")
-  console.log("👤 Julia: julia@salao.com / 123456")
+  await prisma.agendamento.create({
+    data: {
+      clienteNome: "Ana Costa",
+      clienteTelefone: "(11) 99999-3333",
+      clienteEmail: "ana.costa@email.com",
+      servicoId: escova.id,
+      atendenteId: atendenteJuliaData.id,
+      dataHora: new Date(amanha.getFullYear(), amanha.getMonth(), amanha.getDate(), 10, 30),
+      status: "CONFIRMADO",
+    },
+  })
+
+  console.log("📅 Agendamentos de exemplo criados")
+  console.log("✅ Seed concluído com sucesso!")
+
+  console.log("\n🔑 Credenciais de acesso:")
+  console.log("Admin: admin@salao.com / 123456")
+  console.log("Maria: maria@salao.com / 123456")
+  console.log("Ana: ana@salao.com / 123456")
+  console.log("Julia: julia@salao.com / 123456")
 }
 
 main()
   .catch((e) => {
-    console.error("❌ Erro no seed:", e)
+    console.error("❌ Erro durante o seed:", e)
     process.exit(1)
   })
   .finally(async () => {

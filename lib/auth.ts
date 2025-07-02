@@ -1,9 +1,38 @@
-import bcrypt from "bcryptjs"
+import type { NextRequest } from "next/server"
+import { verifyToken } from "./jwt"
+import { prisma } from "./prisma"
 
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 12)
+export async function getAuthenticatedUser(request: NextRequest) {
+  try {
+    const token = request.cookies.get("auth-token")?.value
+
+    if (!token) {
+      return null
+    }
+
+    const decoded = verifyToken(token)
+    if (!decoded || typeof decoded === "string") {
+      return null
+    }
+
+    const user = await prisma.usuario.findUnique({
+      where: { id: decoded.userId },
+      include: {
+        atendente: true,
+      },
+    })
+
+    return user
+  } catch (error) {
+    console.error("Erro na autenticação:", error)
+    return null
+  }
 }
 
-export async function comparePassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash)
+export function isAdmin(user: any) {
+  return user?.tipo === "ADMIN"
+}
+
+export function isAtendente(user: any) {
+  return user?.tipo === "ATENDENTE"
 }

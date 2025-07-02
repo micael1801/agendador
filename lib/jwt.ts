@@ -1,24 +1,16 @@
 import jwt from "jsonwebtoken"
 
-const JWT_SECRET = process.env.JWT_SECRET || "sua-chave-secreta-muito-segura"
+const JWT_SECRET = process.env.JWT_SECRET || "sua-chave-secreta-super-segura"
 
-export interface JWTPayload {
-  userId: number
-  email: string
-  tipoUsuario: string
-  empresaId: number
-  iat?: number
-  exp?: number
-}
-
-export function signToken(payload: Omit<JWTPayload, "iat" | "exp">): string {
+export function signToken(payload: any) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" })
 }
 
-export function verifyToken(token: string): JWTPayload | null {
+export function verifyToken(token: string) {
   try {
-    return jwt.verify(token, JWT_SECRET) as JWTPayload
+    return jwt.verify(token, JWT_SECRET)
   } catch (error) {
+    console.error("Erro ao verificar token:", error)
     return null
   }
 }
