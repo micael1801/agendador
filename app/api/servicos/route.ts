@@ -22,22 +22,19 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { nome, descricao, preco, duracaoMinutos, cor } = body
+    const { nome, descricao, preco, duracaoMinutos } = body
 
-    // Validações básicas
     if (!nome || !preco || !duracaoMinutos) {
       return NextResponse.json({ error: "Nome, preço e duração são obrigatórios" }, { status: 400 })
     }
 
     const servico = await prisma.servico.create({
       data: {
-        empresaId: 1, // Por enquanto fixo, depois implementar multi-tenant
         nome,
         descricao,
         preco: Number.parseFloat(preco),
         duracaoMinutos: Number.parseInt(duracaoMinutos),
-        cor: cor || "#10b981",
-        ativo: true,
+        empresaId: 1, // Por enquanto fixo
       },
     })
 
