@@ -14,7 +14,7 @@ async function main() {
 
   console.log("🗑️ Dados existentes removidos")
 
-  // Criar usuários
+  // Criar usuários - usando o campo correto do schema
   const adminPassword = await bcrypt.hash("123456", 10)
   const mariaPassword = await bcrypt.hash("123456", 10)
   const anaPassword = await bcrypt.hash("123456", 10)
@@ -23,7 +23,7 @@ async function main() {
     data: {
       nome: "Administrador",
       email: "admin@salao.com",
-      senha: adminPassword,
+      senha: adminPassword, // Usando 'senha' conforme o schema
       tipo: "ADMIN",
     },
   })
