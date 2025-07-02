@@ -15,30 +15,28 @@ model Usuario {
   nome      String
   email     String   @unique
   senha     String
-  tipo      String // ADMIN, ATENDENTE
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  tipo      String   // ADMIN, ATENDENTE
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  empresaId Int     @map("empresa_id")
-  empresa   Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-
+  // Relacionamentos
   atendente Atendente?
 
   @@map("usuarios")
 }
 
 model Servico {
-  id             Int      @id @default(autoincrement())
-  nome           String
-  descricao      String?
-  preco          Decimal  @db.Decimal(10, 2)
-  duracaoMinutos Int      @map("duracao_minutos")
-  ativo          Boolean  @default(true)
-  empresaId      Int      @default(1) @map("empresa_id")
-  empresa        Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id               Int      @id @default(autoincrement())
+  nome             String
+  descricao        String?
+  preco            Decimal  @db.Decimal(10, 2)
+  duracaoMinutos   Int      @map("duracao")
+  ativo            Boolean  @default(true)
+  empresaId        Int      @default(1)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
+  // Relacionamentos
   agendamentos Agendamento[]
 
   @@map("servicos")
@@ -46,16 +44,14 @@ model Servico {
 
 model Atendente {
   id             Int      @id @default(autoincrement())
-  usuarioId      Int      @unique @map("usuario_id")
-  empresaId      Int      @map("empresa_id")
-  nome           String
-  especialidades String[] // Array de strings (Postgres aceita)
-  corAgenda      String   @map("cor_agenda")
+  usuarioId      Int      @unique
+  especialidades String[] // Array de strings
+  corAgenda      String   @map("cor")
   ativo          Boolean  @default(true)
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  empresa      Empresa       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  // Relacionamentos
   usuario      Usuario       @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   agendamentos Agendamento[]
 
@@ -64,44 +60,20 @@ model Atendente {
 
 model Agendamento {
   id              Int      @id @default(autoincrement())
-  empresaId       Int      @map("empresa_id")
-  empresa         Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  clienteId       Int      @map("cliente_id")
-  atendenteId     Int      @map("atendente_id")
-  servicoId       Int      @map("servico_id")
   clienteNome     String
   clienteTelefone String
   clienteEmail    String?
   clienteObs      String?
-  dataHora        DateTime @map("data_hora")
-  status          String   @default("CONFIRMADO")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  servicoId       Int
+  atendenteId     Int
+  dataHora        DateTime
+  status          String   @default("CONFIRMADO") // CONFIRMADO, CANCELADO, CONCLUIDO
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
+  // Relacionamentos
   servico   Servico   @relation(fields: [servicoId], references: [id])
   atendente Atendente @relation(fields: [atendenteId], references: [id])
 
   @@map("agendamentos")
-}
-
-model Empresa {
-  id            Int      @id @default(autoincrement())
-  nome          String
-  slogan        String?
-  logoUrl       String?  @map("logo_url")
-  telefone      String?
-  whatsapp      String?
-  email         String?
-  endereco      String?
-  corPrincipal  String   @default("#ec4899") @map("cor_principal")
-  corSecundaria String   @default("#9333ea") @map("cor_secundaria")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  usuarios     Usuario[]
-  servicos     Servico[]
-  atendentes   Atendente[]
-  agendamentos Agendamento[]
-
-  @@map("empresas")
 }
