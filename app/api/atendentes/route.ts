@@ -6,59 +6,30 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const servicoId = searchParams.get("servicoId")
 
-    let atendentes
+    let atendentes = await prisma.atendente.findMany({
+      where: {
+        ativo: true,
+        empresaId: 1, // Por enquanto fixo
+      },
+      orderBy: {
+        nome: "asc",
+      },
+    })
 
+    // Se um serviço foi especificado, filtrar atendentes que fazem esse serviço
     if (servicoId) {
-      // Buscar serviço para filtrar atendentes por especialidade
       const servico = await prisma.servico.findUnique({
         where: { id: Number.parseInt(servicoId) },
       })
 
       if (servico) {
-        atendentes = await prisma.atendente.findMany({
-          where: {
-            ativo: true,
-            empresaId: 1,
-            especialidades: {
-              has: servico.nome, // Verifica se o array contém o nome do serviço
-            },
-          },
-          orderBy: {
-            nome: "asc",
-          },
-        })
+        atendentes = atendentes.filter((atendente) => atendente.especialidades.includes(servico.nome))
       }
-    }
-
-    // Se não encontrou atendentes específicos, buscar todos
-    if (!atendentes || atendentes.length === 0) {
-      atendentes = await prisma.atendente.findMany({
-        where: {
-          ativo: true,
-          empresaId: 1,
-        },
-        orderBy: {
-          nome: "asc",
-        },
-      })
     }
 
     return NextResponse.json(atendentes)
   } catch (error) {
     console.error("Erro ao buscar atendentes:", error)
-
-    // Retornar dados mockados em caso de erro
-    const atendentesMock = [
-      { id: 1, nome: "Maria Silva", especialidades: ["Corte Feminino", "Coloração", "Escova"], corAgenda: "#ec4899" },
-      {
-        id: 2,
-        nome: "Ana Costa",
-        especialidades: ["Corte Feminino", "Corte Masculino", "Penteados"],
-        corAgenda: "#8b5cf6",
-      },
-      { id: 3, nome: "Julia Santos", especialidades: ["Manicure", "Pedicure"], corAgenda: "#10b981" },
-    ]
-
-    return NextResponse.json(atendentesMock)
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
   }
 }

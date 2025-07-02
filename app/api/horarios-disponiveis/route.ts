@@ -25,18 +25,8 @@ export async function GET(request: Request) {
       },
     })
 
-    // Se não encontrar horário específico do atendente, usar horário padrão
-    let horaInicio = "08:00"
-    let horaFim = "18:00"
-
-    if (horarioAtendente) {
-      horaInicio = horarioAtendente.horaInicio
-      horaFim = horarioAtendente.horaFim
-    } else {
-      // Verificar se é domingo (dia 0) - não trabalha
-      if (diaSemana === 0) {
-        return NextResponse.json([])
-      }
+    if (!horarioAtendente) {
+      return NextResponse.json([]) // Atendente não trabalha neste dia
     }
 
     // Buscar agendamentos existentes para o dia
@@ -64,25 +54,16 @@ export async function GET(request: Request) {
     }
 
     // Gerar horários disponíveis
-    const horariosDisponiveis = generateTimeSlots(horaInicio, horaFim, servico.duracaoMinutos, agendamentosExistentes)
+    const horariosDisponiveis = generateTimeSlots(
+      horarioAtendente.horaInicio,
+      horarioAtendente.horaFim,
+      servico.duracaoMinutos,
+      agendamentosExistentes,
+    )
 
     return NextResponse.json(horariosDisponiveis.map((time) => ({ time, available: true })))
   } catch (error) {
     console.error("Erro ao buscar horários disponíveis:", error)
-
-    // Retornar horários mockados em caso de erro
-    const horariosMock = []
-    for (let hour = 8; hour < 18; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        const time = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`
-        // Simular alguns horários ocupados
-        const occupied = Math.random() < 0.3
-        if (!occupied) {
-          horariosMock.push({ time, available: true })
-        }
-      }
-    }
-
-    return NextResponse.json(horariosMock)
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
   }
 }

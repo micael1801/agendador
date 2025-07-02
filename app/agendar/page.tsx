@@ -1,14 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Scissors, ArrowLeft, Check, Calendar, Clock } from "lucide-react"
+import { Scissors, ArrowLeft, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
 
 interface Servico {
@@ -31,11 +30,6 @@ interface TimeSlot {
   available: boolean
 }
 
-interface HorarioDisponivel {
-  data: string
-  horarios: TimeSlot[]
-}
-
 export default function AgendarPage() {
   const [step, setStep] = useState(1)
   const [selectedService, setSelectedService] = useState<Servico | null>(null)
@@ -52,152 +46,70 @@ export default function AgendarPage() {
   const [servicos, setServicos] = useState<Servico[]>([])
   const [atendentes, setAtendentes] = useState<Atendente[]>([])
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([])
-  const [horariosDisponiveis, setHorariosDisponiveis] = useState<HorarioDisponivel[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string>("")
 
-  // Carregar serviços ao montar o componente
+  // Dados mockados para demonstração
   useEffect(() => {
-    loadServicos()
+    setServicos([
+      { id: 1, nome: "Corte Feminino", preco: 45, duracaoMinutos: 45, descricao: "Corte personalizado" },
+      { id: 2, nome: "Corte Masculino", preco: 25, duracaoMinutos: 30, descricao: "Corte tradicional" },
+      { id: 3, nome: "Coloração", preco: 120, duracaoMinutos: 120, descricao: "Coloração completa" },
+      { id: 4, nome: "Escova", preco: 35, duracaoMinutos: 40, descricao: "Escova modeladora" },
+      { id: 5, nome: "Hidratação", preco: 60, duracaoMinutos: 60, descricao: "Tratamento hidratante" },
+      { id: 6, nome: "Manicure", preco: 20, duracaoMinutos: 30, descricao: "Cuidados para as unhas" },
+    ])
+
+    setAtendentes([
+      { id: 1, nome: "Maria Silva", especialidades: ["Corte Feminino", "Coloração", "Escova"], corAgenda: "#ec4899" },
+      {
+        id: 2,
+        nome: "Ana Costa",
+        especialidades: ["Corte Feminino", "Corte Masculino", "Penteados"],
+        corAgenda: "#8b5cf6",
+      },
+      { id: 3, nome: "Julia Santos", especialidades: ["Manicure", "Pedicure"], corAgenda: "#10b981" },
+    ])
   }, [])
 
-  // Carregar atendentes quando serviço for selecionado
-  useEffect(() => {
-    if (selectedService) {
-      loadAtendentes(selectedService.id)
-    }
-  }, [selectedService])
-
-  // Carregar horários disponíveis quando atendente for selecionado
-  useEffect(() => {
-    if (selectedService && selectedAtendente) {
-      loadHorariosDisponiveis()
-    }
-  }, [selectedService, selectedAtendente])
-
-  // Carregar horários específicos quando data for selecionada
+  // Gerar horários disponíveis quando serviço, atendente e data forem selecionados
   useEffect(() => {
     if (selectedService && selectedAtendente && selectedDate) {
-      loadHorariosEspecificos(selectedDate)
+      generateAvailableSlots()
     }
   }, [selectedService, selectedAtendente, selectedDate])
 
-  const loadServicos = async () => {
-    try {
-      const response = await fetch("/api/servicos")
-      if (response.ok) {
-        const data = await response.json()
-        setServicos(data)
+  const generateAvailableSlots = () => {
+    // Simular horários disponíveis (8h às 18h com intervalos de 30min)
+    const slots: TimeSlot[] = []
+    const startHour = 8
+    const endHour = 18
+
+    for (let hour = startHour; hour < endHour; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        const time = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`
+        // Simular alguns horários ocupados
+        const occupied = Math.random() < 0.3
+        slots.push({ time, available: !occupied })
       }
-    } catch (error) {
-      console.error("Erro ao carregar serviços:", error)
-      // Fallback para dados mockados
-      setServicos([
-        { id: 1, nome: "Corte Feminino", preco: 45, duracaoMinutos: 45, descricao: "Corte personalizado" },
-        { id: 2, nome: "Corte Masculino", preco: 25, duracaoMinutos: 30, descricao: "Corte tradicional" },
-        { id: 3, nome: "Coloração", preco: 120, duracaoMinutos: 120, descricao: "Coloração completa" },
-        { id: 4, nome: "Escova", preco: 35, duracaoMinutos: 40, descricao: "Escova modeladora" },
-        { id: 5, nome: "Hidratação", preco: 60, duracaoMinutos: 60, descricao: "Tratamento hidratante" },
-        { id: 6, nome: "Manicure", preco: 20, duracaoMinutos: 30, descricao: "Cuidados para as unhas" },
-      ])
     }
-  }
 
-  const loadAtendentes = async (servicoId: number) => {
-    try {
-      const response = await fetch(`/api/atendentes?servicoId=${servicoId}`)
-      if (response.ok) {
-        const data = await response.json()
-        setAtendentes(data)
-      }
-    } catch (error) {
-      console.error("Erro ao carregar atendentes:", error)
-      // Fallback para dados mockados
-      setAtendentes([
-        { id: 1, nome: "Maria Silva", especialidades: ["Corte Feminino", "Coloração", "Escova"], corAgenda: "#ec4899" },
-        {
-          id: 2,
-          nome: "Ana Costa",
-          especialidades: ["Corte Feminino", "Corte Masculino", "Penteados"],
-          corAgenda: "#8b5cf6",
-        },
-        { id: 3, nome: "Julia Santos", especialidades: ["Manicure", "Pedicure"], corAgenda: "#10b981" },
-      ])
-    }
-  }
-
-  const loadHorariosDisponiveis = async () => {
-    if (!selectedService || !selectedAtendente) return
-
-    try {
-      setLoading(true)
-      const horariosProximosDias: HorarioDisponivel[] = []
-
-      // Carregar horários para os próximos 14 dias
-      for (let i = 0; i < 14; i++) {
-        const data = new Date()
-        data.setDate(data.getDate() + i)
-        const dataStr = data.toISOString().split("T")[0]
-
-        const response = await fetch(
-          `/api/horarios-disponiveis?atendenteId=${selectedAtendente.id}&data=${dataStr}&servicoId=${selectedService.id}`,
-        )
-
-        if (response.ok) {
-          const horarios = await response.json()
-          if (horarios.length > 0) {
-            horariosProximosDias.push({
-              data: dataStr,
-              horarios: horarios,
-            })
-          }
-        }
-      }
-
-      setHorariosDisponiveis(horariosProximosDias)
-    } catch (error) {
-      console.error("Erro ao carregar horários disponíveis:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadHorariosEspecificos = async (data: string) => {
-    if (!selectedService || !selectedAtendente) return
-
-    try {
-      const response = await fetch(
-        `/api/horarios-disponiveis?atendenteId=${selectedAtendente.id}&data=${data}&servicoId=${selectedService.id}`,
-      )
-
-      if (response.ok) {
-        const horarios = await response.json()
-        setAvailableSlots(horarios)
-      }
-    } catch (error) {
-      console.error("Erro ao carregar horários específicos:", error)
-    }
+    setAvailableSlots(slots)
   }
 
   const handleServiceSelect = (servico: Servico) => {
     setSelectedService(servico)
-    setSelectedAtendente(null)
-    setSelectedDate("")
-    setSelectedTime("")
-    setHorariosDisponiveis([])
+    setSelectedAtendente(null) // Reset atendente quando muda serviço
     setStep(2)
   }
 
   const handleAtendenteSelect = (atendente: Atendente) => {
     setSelectedAtendente(atendente)
-    setSelectedDate("")
-    setSelectedTime("")
     setStep(3)
   }
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date)
-    setSelectedTime("")
+    setSelectedTime("") // Reset time quando muda data
     setStep(4)
   }
 
@@ -207,39 +119,16 @@ export default function AgendarPage() {
   }
 
   const handleSubmit = async () => {
-    if (!selectedService || !selectedAtendente || !selectedDate || !selectedTime) {
-      setError("Dados incompletos para o agendamento")
-      return
-    }
-
     setLoading(true)
-    setError("")
 
     try {
-      const response = await fetch("/api/agendamentos", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          servicoId: selectedService.id,
-          atendenteId: selectedAtendente.id,
-          dataAgendamento: selectedDate,
-          horaInicio: selectedTime,
-          clienteData: clientData,
-        }),
-      })
+      // Aqui você faria a chamada para a API para criar o agendamento
+      await new Promise((resolve) => setTimeout(resolve, 2000)) // Simular delay
 
-      const result = await response.json()
-
-      if (response.ok) {
-        setStep(6)
-      } else {
-        setError(result.error || "Erro ao criar agendamento")
-      }
+      // Redirecionar para página de confirmação ou mostrar sucesso
+      setStep(6)
     } catch (error) {
       console.error("Erro ao agendar:", error)
-      setError("Erro de conexão. Tente novamente.")
     } finally {
       setLoading(false)
     }
@@ -247,22 +136,18 @@ export default function AgendarPage() {
 
   const getFilteredAtendentes = () => {
     if (!selectedService) return []
-    return atendentes.filter((atendente) =>
-      atendente.especialidades.some(
-        (esp) =>
-          esp.toLowerCase().includes(selectedService.nome.toLowerCase()) ||
-          selectedService.nome.toLowerCase().includes(esp.toLowerCase()),
-      ),
-    )
+    return atendentes.filter((atendente) => atendente.especialidades.includes(selectedService.nome))
   }
 
-  const formatDateBR = (dateStr: string) => {
-    const date = new Date(dateStr + "T00:00:00")
-    return date.toLocaleDateString("pt-BR", {
-      weekday: "long",
-      day: "2-digit",
-      month: "2-digit",
-    })
+  const getMinDate = () => {
+    const today = new Date()
+    return today.toISOString().split("T")[0]
+  }
+
+  const getMaxDate = () => {
+    const maxDate = new Date()
+    maxDate.setDate(maxDate.getDate() + 30) // 30 dias no futuro
+    return maxDate.toISOString().split("T")[0]
   }
 
   return (
@@ -325,12 +210,6 @@ export default function AgendarPage() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {error && (
-          <Alert className="mb-6 max-w-2xl mx-auto">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
         {/* Step 1: Escolher Serviço */}
         {step === 1 && (
           <div className="max-w-4xl mx-auto">
@@ -404,66 +283,27 @@ export default function AgendarPage() {
 
         {/* Step 3: Escolher Data */}
         {step === 3 && selectedService && selectedAtendente && (
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-gray-900 mb-2">Escolha a Data</h2>
               <p className="text-gray-600">
                 <strong>{selectedService.nome}</strong> com <strong>{selectedAtendente.nome}</strong>
               </p>
             </div>
-
-            {loading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Carregando horários disponíveis...</p>
-              </div>
-            ) : horariosDisponiveis.length > 0 ? (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {horariosDisponiveis.map((horario) => (
-                  <Card
-                    key={horario.data}
-                    className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-pink-200"
-                    onClick={() => handleDateSelect(horario.data)}
-                  >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-5 h-5 text-pink-600" />
-                        <CardTitle className="text-lg capitalize">{formatDateBR(horario.data)}</CardTitle>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-wrap gap-1">
-                        {horario.horarios.slice(0, 6).map((slot) => (
-                          <Badge key={slot.time} variant="outline" className="text-xs">
-                            {slot.time}
-                          </Badge>
-                        ))}
-                        {horario.horarios.length > 6 && (
-                          <Badge variant="secondary" className="text-xs">
-                            +{horario.horarios.length - 6} mais
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-600 mt-2">
-                        {horario.horarios.length} horário{horario.horarios.length !== 1 ? "s" : ""} disponível
-                        {horario.horarios.length !== 1 ? "eis" : ""}
-                      </p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="text-center py-8">
-                  <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum horário disponível</h3>
-                  <p className="text-gray-600">
-                    Não há horários disponíveis para este profissional nos próximos dias. Tente selecionar outro
-                    profissional ou entre em contato conosco.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+            <Card>
+              <CardContent className="p-6">
+                <Label htmlFor="date">Selecione a data:</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  min={getMinDate()}
+                  max={getMaxDate()}
+                  value={selectedDate}
+                  onChange={(e) => handleDateSelect(e.target.value)}
+                  className="mt-2"
+                />
+              </CardContent>
+            </Card>
           </div>
         )}
 
@@ -473,37 +313,26 @@ export default function AgendarPage() {
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-gray-900 mb-2">Escolha o Horário</h2>
               <p className="text-gray-600">
-                Data: <strong>{formatDateBR(selectedDate)}</strong>
+                Data: <strong>{new Date(selectedDate + "T00:00:00").toLocaleDateString("pt-BR")}</strong>
               </p>
             </div>
             <Card>
               <CardContent className="p-6">
-                {availableSlots.length > 0 ? (
-                  <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                    {availableSlots.map((slot) => (
-                      <Button
-                        key={slot.time}
-                        variant={selectedTime === slot.time ? "default" : "outline"}
-                        disabled={!slot.available}
-                        onClick={() => handleTimeSelect(slot.time)}
-                        className={`${
-                          selectedTime === slot.time ? "bg-gradient-to-r from-pink-500 to-purple-600" : ""
-                        } ${!slot.available ? "opacity-50 cursor-not-allowed" : ""}`}
-                      >
-                        <Clock className="w-4 h-4 mr-1" />
-                        {slot.time}
-                      </Button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum horário disponível</h3>
-                    <p className="text-gray-600">
-                      Não há horários disponíveis para esta data. Tente selecionar outra data.
-                    </p>
-                  </div>
-                )}
+                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                  {availableSlots.map((slot) => (
+                    <Button
+                      key={slot.time}
+                      variant={selectedTime === slot.time ? "default" : "outline"}
+                      disabled={!slot.available}
+                      onClick={() => handleTimeSelect(slot.time)}
+                      className={`${
+                        selectedTime === slot.time ? "bg-gradient-to-r from-pink-500 to-purple-600" : ""
+                      } ${!slot.available ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      {slot.time}
+                    </Button>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -533,7 +362,9 @@ export default function AgendarPage() {
                   </div>
                   <div className="flex justify-between">
                     <span>Data:</span>
-                    <span className="font-medium">{formatDateBR(selectedDate)}</span>
+                    <span className="font-medium">
+                      {selectedDate && new Date(selectedDate + "T00:00:00").toLocaleDateString("pt-BR")}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span>Horário:</span>
@@ -636,7 +467,9 @@ export default function AgendarPage() {
                     </div>
                     <div className="flex justify-between">
                       <span>Data:</span>
-                      <span className="font-medium">{formatDateBR(selectedDate)}</span>
+                      <span className="font-medium">
+                        {selectedDate && new Date(selectedDate + "T00:00:00").toLocaleDateString("pt-BR")}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span>Horário:</span>
@@ -661,18 +494,7 @@ export default function AgendarPage() {
                       <Button asChild className="flex-1">
                         <Link href="/">Voltar ao Início</Link>
                       </Button>
-                      <Button
-                        variant="outline"
-                        className="flex-1 bg-transparent"
-                        onClick={() => {
-                          setStep(1)
-                          setSelectedService(null)
-                          setSelectedAtendente(null)
-                          setSelectedDate("")
-                          setSelectedTime("")
-                          setClientData({ nome: "", telefone: "", email: "", observacoes: "" })
-                        }}
-                      >
+                      <Button variant="outline" className="flex-1 bg-transparent">
                         Agendar Novamente
                       </Button>
                     </div>
