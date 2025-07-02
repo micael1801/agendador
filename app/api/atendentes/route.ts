@@ -6,26 +6,31 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const servicoId = searchParams.get("servicoId")
 
-    let atendentes = await prisma.atendente.findMany({
-      where: {
-        ativo: true,
-        empresaId: 1, // Por enquanto fixo
-      },
-      orderBy: {
-        nome: "asc",
-      },
-    })
+    const whereClause: any = {
+      ativo: true,
+      empresaId: 1, // Por enquanto usando empresa fixa
+    }
 
-    // Se um serviço foi especificado, filtrar atendentes que fazem esse serviço
+    // Se um serviço específico foi solicitado, filtrar por especialidade
     if (servicoId) {
       const servico = await prisma.servico.findUnique({
         where: { id: Number.parseInt(servicoId) },
       })
 
       if (servico) {
-        atendentes = atendentes.filter((atendente) => atendente.especialidades.includes(servico.nome))
+        // Filtrar atendentes que têm o serviço em suas especialidades
+        whereClause.especialidades = {
+          has: servico.nome,
+        }
       }
     }
+
+    const atendentes = await prisma.atendente.findMany({
+      where: whereClause,
+      orderBy: {
+        nome: "asc",
+      },
+    })
 
     return NextResponse.json(atendentes)
   } catch (error) {
