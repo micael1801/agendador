@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const atendenteId = searchParams.get("atendenteId")
@@ -9,10 +9,10 @@ export async function GET(request: Request) {
     const servicoId = searchParams.get("servicoId")
 
     if (!atendenteId || !data || !servicoId) {
-      return NextResponse.json({ error: "Parâmetros obrigatórios: atendenteId, data, servicoId" }, { status: 400 })
+      return NextResponse.json({ error: "atendenteId, data e servicoId são obrigatórios" }, { status: 400 })
     }
 
-    // Buscar o serviço para obter a duração
+    // Buscar o serviço para saber a duração
     const servico = await prisma.servico.findUnique({
       where: { id: Number.parseInt(servicoId) },
     })
@@ -21,16 +21,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 })
     }
 
-    // Converter a data para o início e fim do dia
-    const dataInicio = new Date(data + "T00:00:00")
+    // Buscar agendamentos existentes para o atendente na data
+    const dataAgendamento = new Date(data + "T00:00:00")
     const dataFim = new Date(data + "T23:59:59")
 
-    // Buscar agendamentos existentes para o atendente na data
     const agendamentosExistentes = await prisma.agendamento.findMany({
       where: {
         atendenteId: Number.parseInt(atendenteId),
         dataHora: {
-          gte: dataInicio,
+          gte: dataAgendamento,
           lte: dataFim,
         },
         status: {
@@ -42,7 +41,7 @@ export async function GET(request: Request) {
       },
     })
 
-    // Gerar horários disponíveis (8h às 18h, intervalos de 30 min)
+    // Gerar horários disponíveis (8h às 18h, de 30 em 30 minutos)
     const horariosDisponiveis = []
     const horaInicio = 8 // 8h
     const horaFim = 18 // 18h
@@ -52,35 +51,28 @@ export async function GET(request: Request) {
       for (let minuto = 0; minuto < 60; minuto += intervalo) {
         const horarioString = `${hora.toString().padStart(2, "0")}:${minuto.toString().padStart(2, "0")}`
 
-        // Verificar se o horário está ocupado
+        // Verificar se o horário está disponível
         const horarioDateTime = new Date(data + `T${horarioString}:00`)
-        const duracaoServicoMinutos = servico.duracaoMinutos
+        const horarioFimDateTime = new Date(horarioDateTime.getTime() + servico.duracaoMinutos * 60000)
 
-        let ocupado = false
+        // Verificar conflitos com agendamentos existentes
+        const temConflito = agendamentosExistentes.some((agendamento) => {
+          const agendamentoFim = new Date(agendamento.dataHora.getTime() + agendamento.servico.duracaoMinutos * 60000)
 
-        for (const agendamento of agendamentosExistentes) {
-          const inicioAgendamento = new Date(agendamento.dataHora)
-          const fimAgendamento = new Date(inicioAgendamento.getTime() + agendamento.servico.duracaoMinutos * 60000)
-          const fimNovoAgendamento = new Date(horarioDateTime.getTime() + duracaoServicoMinutos * 60000)
+          return (
+            (horarioDateTime >= agendamento.dataHora && horarioDateTime < agendamentoFim) ||
+            (horarioFimDateTime > agendamento.dataHora && horarioFimDateTime <= agendamentoFim) ||
+            (horarioDateTime <= agendamento.dataHora && horarioFimDateTime >= agendamentoFim)
+          )
+        })
 
-          // Verificar sobreposição
-          if (
-            (horarioDateTime >= inicioAgendamento && horarioDateTime < fimAgendamento) ||
-            (fimNovoAgendamento > inicioAgendamento && fimNovoAgendamento <= fimAgendamento) ||
-            (horarioDateTime <= inicioAgendamento && fimNovoAgendamento >= fimAgendamento)
-          ) {
-            ocupado = true
-            break
-          }
-        }
-
-        // Verificar se não é no passado
-        const agora = new Date()
-        const isPassado = horarioDateTime <= agora
+        // Verificar se o horário de fim não ultrapassa o horário de funcionamento
+        const horaFimServico = horarioFimDateTime.getHours() + horarioFimDateTime.getMinutes() / 60
+        const dentroDoHorario = horaFimServico <= horaFim
 
         horariosDisponiveis.push({
           time: horarioString,
-          available: !ocupado && !isPassado,
+          available: !temConflito && dentroDoHorario,
         })
       }
     }

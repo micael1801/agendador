@@ -6,247 +6,161 @@ const prisma = new PrismaClient()
 async function main() {
   console.log("🌱 Iniciando seed do banco de dados...")
 
-  // Limpar dados existentes
-  await prisma.movimentacaoFinanceira.deleteMany()
+  // Limpar dados existentes na ordem correta (devido às foreign keys)
   await prisma.agendamento.deleteMany()
-  await prisma.bloqueio.deleteMany()
-  await prisma.cliente.deleteMany()
-  await prisma.servico.deleteMany()
-  await prisma.horarioAtendente.deleteMany()
   await prisma.atendente.deleteMany()
-  await prisma.horarioFuncionamento.deleteMany()
+  await prisma.servico.deleteMany()
   await prisma.usuario.deleteMany()
-  await prisma.empresa.deleteMany()
 
-  // Criar empresa
-  const empresa = await prisma.empresa.create({
+  console.log("🗑️ Dados existentes removidos")
+
+  // Criar usuários
+  const adminPassword = await bcrypt.hash("123456", 10)
+  const mariaPassword = await bcrypt.hash("123456", 10)
+  const anaPassword = await bcrypt.hash("123456", 10)
+
+  const admin = await prisma.usuario.create({
     data: {
-      nome: "Salão Exemplo",
-      slogan: "Beleza e bem-estar em primeiro lugar",
-      telefone: "(11) 99999-9999",
-      whatsapp: "(11) 99999-9999",
-      email: "contato@salaoexemplo.com",
-      endereco: "Rua das Flores, 123 - Centro",
-      corPrincipal: "#ec4899",
-      corSecundaria: "#9333ea",
-    },
-  })
-
-  console.log("✅ Empresa criada:", empresa.nome)
-
-  // Criar horários de funcionamento
-  const diasSemana = [
-    { dia: 1, inicio: "08:00", fim: "18:00" }, // Segunda
-    { dia: 2, inicio: "08:00", fim: "18:00" }, // Terça
-    { dia: 3, inicio: "08:00", fim: "18:00" }, // Quarta
-    { dia: 4, inicio: "08:00", fim: "18:00" }, // Quinta
-    { dia: 5, inicio: "08:00", fim: "18:00" }, // Sexta
-    { dia: 6, inicio: "08:00", fim: "16:00" }, // Sábado
-  ]
-
-  for (const horario of diasSemana) {
-    await prisma.horarioFuncionamento.create({
-      data: {
-        empresaId: empresa.id,
-        diaSemana: horario.dia,
-        horaInicio: horario.inicio,
-        horaFim: horario.fim,
-        ativo: true,
-      },
-    })
-  }
-
-  console.log("✅ Horários de funcionamento criados")
-
-  // Criar usuário admin
-  const senhaHash = await bcrypt.hash("123456", 10)
-  const usuarioAdmin = await prisma.usuario.create({
-    data: {
-      empresaId: empresa.id,
       nome: "Administrador",
-      email: "admin@salaoexemplo.com",
-      senhaHash,
-      tipoUsuario: "admin",
-      ativo: true,
+      email: "admin@salao.com",
+      senha: adminPassword,
+      tipo: "ADMIN",
     },
   })
 
-  console.log("✅ Usuário admin criado")
-
-  // Criar usuários atendentes
-  const usuarioAtendente1 = await prisma.usuario.create({
+  const maria = await prisma.usuario.create({
     data: {
-      empresaId: empresa.id,
       nome: "Maria Silva",
-      email: "maria@salaoexemplo.com",
-      senhaHash: await bcrypt.hash("123456", 10),
-      tipoUsuario: "atendente",
-      ativo: true,
+      email: "maria@salao.com",
+      senha: mariaPassword,
+      tipo: "ATENDENTE",
     },
   })
 
-  const usuarioAtendente2 = await prisma.usuario.create({
+  const ana = await prisma.usuario.create({
     data: {
-      empresaId: empresa.id,
       nome: "Ana Santos",
-      email: "ana@salaoexemplo.com",
-      senhaHash: await bcrypt.hash("123456", 10),
-      tipoUsuario: "atendente",
-      ativo: true,
+      email: "ana@salao.com",
+      senha: anaPassword,
+      tipo: "ATENDENTE",
     },
   })
 
-  // Criar atendentes
-  const atendente1 = await prisma.atendente.create({
-    data: {
-      usuarioId: usuarioAtendente1.id,
-      empresaId: empresa.id,
-      nome: "Maria Silva",
-      especialidades: ["Corte", "Escova", "Coloração"],
-      corAgenda: "#3b82f6",
-      ativo: true,
-    },
-  })
-
-  const atendente2 = await prisma.atendente.create({
-    data: {
-      usuarioId: usuarioAtendente2.id,
-      empresaId: empresa.id,
-      nome: "Ana Santos",
-      especialidades: ["Manicure", "Pedicure", "Esmaltação"],
-      corAgenda: "#10b981",
-      ativo: true,
-    },
-  })
-
-  console.log("✅ Atendentes criados")
-
-  // Criar horários dos atendentes
-  const horariosAtendentes = [
-    { dia: 1, inicio: "08:00", fim: "17:00" },
-    { dia: 2, inicio: "08:00", fim: "17:00" },
-    { dia: 3, inicio: "08:00", fim: "17:00" },
-    { dia: 4, inicio: "08:00", fim: "17:00" },
-    { dia: 5, inicio: "08:00", fim: "17:00" },
-    { dia: 6, inicio: "08:00", fim: "15:00" },
-  ]
-
-  for (const atendente of [atendente1, atendente2]) {
-    for (const horario of horariosAtendentes) {
-      await prisma.horarioAtendente.create({
-        data: {
-          atendenteId: atendente.id,
-          diaSemana: horario.dia,
-          horaInicio: horario.inicio,
-          horaFim: horario.fim,
-          ativo: true,
-        },
-      })
-    }
-  }
-
-  console.log("✅ Horários dos atendentes criados")
+  console.log("👥 Usuários criados")
 
   // Criar serviços
-  const servicos = [
-    {
-      nome: "Corte Feminino",
-      descricao: "Corte de cabelo feminino com lavagem e finalização",
-      preco: 45.0,
-      duracao: 60,
-      cor: "#ec4899",
+  const corte = await prisma.servico.create({
+    data: {
+      nome: "Corte de Cabelo",
+      descricao: "Corte moderno e estiloso",
+      duracaoMinutos: 60,
+      preco: 50.0,
+      empresaId: 1,
     },
-    {
-      nome: "Corte Masculino",
-      descricao: "Corte de cabelo masculino tradicional",
-      preco: 25.0,
-      duracao: 30,
-      cor: "#3b82f6",
-    },
-    {
+  })
+
+  const escova = await prisma.servico.create({
+    data: {
       nome: "Escova",
-      descricao: "Escova modeladora com produtos profissionais",
+      descricao: "Escova modeladora para todos os tipos de cabelo",
+      duracaoMinutos: 45,
       preco: 35.0,
-      duracao: 45,
-      cor: "#f59e0b",
+      empresaId: 1,
     },
-    {
-      nome: "Coloração",
-      descricao: "Coloração completa com produtos de qualidade",
-      preco: 80.0,
-      duracao: 120,
-      cor: "#8b5cf6",
-    },
-    {
+  })
+
+  const manicure = await prisma.servico.create({
+    data: {
       nome: "Manicure",
-      descricao: "Cuidados completos para as unhas das mãos",
-      preco: 20.0,
-      duracao: 45,
-      cor: "#10b981",
-    },
-    {
-      nome: "Pedicure",
-      descricao: "Cuidados completos para os pés",
+      descricao: "Cuidado completo para as unhas das mãos",
+      duracaoMinutos: 60,
       preco: 25.0,
-      duracao: 60,
-      cor: "#06b6d4",
+      empresaId: 1,
     },
-  ]
+  })
 
-  for (const servico of servicos) {
-    await prisma.servico.create({
-      data: {
-        empresaId: empresa.id,
-        nome: servico.nome,
-        descricao: servico.descricao,
-        preco: servico.preco,
-        duracaoMinutos: servico.duracao,
-        cor: servico.cor,
-        ativo: true,
-      },
-    })
-  }
-
-  console.log("✅ Serviços criados")
-
-  // Criar alguns clientes de exemplo
-  const clientes = [
-    {
-      nome: "João Silva",
-      telefone: "(11) 98888-8888",
-      email: "joao@email.com",
+  const pedicure = await prisma.servico.create({
+    data: {
+      nome: "Pedicure",
+      descricao: "Cuidado completo para as unhas dos pés",
+      duracaoMinutos: 60,
+      preco: 30.0,
+      empresaId: 1,
     },
-    {
-      nome: "Maria Oliveira",
-      telefone: "(11) 97777-7777",
-      email: "maria@email.com",
+  })
+
+  const coloracao = await prisma.servico.create({
+    data: {
+      nome: "Coloração",
+      descricao: "Coloração profissional com produtos de qualidade",
+      duracaoMinutos: 120,
+      preco: 80.0,
+      empresaId: 1,
     },
-    {
-      nome: "Pedro Santos",
-      telefone: "(11) 96666-6666",
-      email: "pedro@email.com",
+  })
+
+  console.log("💄 Serviços criados")
+
+  // Criar atendentes
+  const atendenteMariaData = await prisma.atendente.create({
+    data: {
+      usuarioId: maria.id,
+      especialidades: ["Corte de Cabelo", "Escova", "Coloração"],
+      corAgenda: "#FF6B6B",
     },
-  ]
+  })
 
-  for (const cliente of clientes) {
-    await prisma.cliente.create({
-      data: {
-        empresaId: empresa.id,
-        nome: cliente.nome,
-        telefone: cliente.telefone,
-        email: cliente.email,
-      },
-    })
-  }
+  const atendenteAnaData = await prisma.atendente.create({
+    data: {
+      usuarioId: ana.id,
+      especialidades: ["Manicure", "Pedicure"],
+      corAgenda: "#4ECDC4",
+    },
+  })
 
-  console.log("✅ Clientes criados")
+  console.log("💅 Atendentes criados")
 
-  console.log("🎉 Seed concluído com sucesso!")
+  // Criar alguns agendamentos de exemplo
+  const hoje = new Date()
+  const amanha = new Date(hoje)
+  amanha.setDate(hoje.getDate() + 1)
+
+  await prisma.agendamento.create({
+    data: {
+      clienteNome: "João Silva",
+      clienteTelefone: "(11) 99999-1111",
+      clienteEmail: "joao@email.com",
+      servicoId: corte.id,
+      atendenteId: atendenteMariaData.id,
+      dataHora: new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 9, 0),
+      status: "CONFIRMADO",
+    },
+  })
+
+  await prisma.agendamento.create({
+    data: {
+      clienteNome: "Maria Oliveira",
+      clienteTelefone: "(11) 99999-2222",
+      clienteEmail: "maria.oliveira@email.com",
+      servicoId: manicure.id,
+      atendenteId: atendenteAnaData.id,
+      dataHora: new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 14, 0),
+      status: "CONFIRMADO",
+    },
+  })
+
+  console.log("📅 Agendamentos de exemplo criados")
+  console.log("✅ Seed concluído com sucesso!")
+
+  console.log("\n🔑 Credenciais de acesso:")
+  console.log("Admin: admin@salao.com / 123456")
+  console.log("Maria: maria@salao.com / 123456")
+  console.log("Ana: ana@salao.com / 123456")
 }
 
 main()
   .catch((e) => {
-    console.error("❌ Erro no seed:", e)
+    console.error("❌ Erro durante o seed:", e)
     process.exit(1)
   })
   .finally(async () => {
