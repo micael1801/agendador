@@ -6,7 +6,7 @@ const prisma = new PrismaClient()
 async function main() {
   console.log("🌱 Iniciando seed do banco de dados...")
 
-  // Limpar dados existentes
+  // Limpar dados existentes na ordem correta (devido às foreign keys)
   await prisma.agendamento.deleteMany()
   await prisma.atendente.deleteMany()
   await prisma.servico.deleteMany()
@@ -62,40 +62,60 @@ async function main() {
   const corte = await prisma.servico.create({
     data: {
       nome: "Corte de Cabelo",
-      duracao: 60,
+      descricao: "Corte moderno e estiloso",
+      duracaoMinutos: 60,
       preco: 50.0,
+      empresaId: 1,
     },
   })
 
   const escova = await prisma.servico.create({
     data: {
       nome: "Escova",
-      duracao: 45,
+      descricao: "Escova modeladora para todos os tipos de cabelo",
+      duracaoMinutos: 45,
       preco: 35.0,
+      empresaId: 1,
     },
   })
 
   const manicure = await prisma.servico.create({
     data: {
       nome: "Manicure",
-      duracao: 60,
+      descricao: "Cuidado completo para as unhas das mãos",
+      duracaoMinutos: 60,
       preco: 25.0,
+      empresaId: 1,
     },
   })
 
   const pedicure = await prisma.servico.create({
     data: {
       nome: "Pedicure",
-      duracao: 60,
+      descricao: "Cuidado completo para as unhas dos pés",
+      duracaoMinutos: 60,
       preco: 30.0,
+      empresaId: 1,
     },
   })
 
   const coloracao = await prisma.servico.create({
     data: {
       nome: "Coloração",
-      duracao: 120,
+      descricao: "Coloração profissional com produtos de qualidade",
+      duracaoMinutos: 120,
       preco: 80.0,
+      empresaId: 1,
+    },
+  })
+
+  const luzes = await prisma.servico.create({
+    data: {
+      nome: "Luzes",
+      descricao: "Mechas e luzes para realçar o visual",
+      duracaoMinutos: 180,
+      preco: 120.0,
+      empresaId: 1,
     },
   })
 
@@ -105,8 +125,8 @@ async function main() {
   const atendenteMariaData = await prisma.atendente.create({
     data: {
       usuarioId: maria.id,
-      especialidades: ["Corte de Cabelo", "Escova", "Coloração"],
-      cor: "#FF6B6B",
+      especialidades: ["Corte de Cabelo", "Escova", "Coloração", "Luzes"],
+      corAgenda: "#FF6B6B",
     },
   })
 
@@ -114,7 +134,7 @@ async function main() {
     data: {
       usuarioId: ana.id,
       especialidades: ["Manicure", "Pedicure"],
-      cor: "#4ECDC4",
+      corAgenda: "#4ECDC4",
     },
   })
 
@@ -122,7 +142,7 @@ async function main() {
     data: {
       usuarioId: julia.id,
       especialidades: ["Corte de Cabelo", "Escova", "Manicure"],
-      cor: "#45B7D1",
+      corAgenda: "#45B7D1",
     },
   })
 

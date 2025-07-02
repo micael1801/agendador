@@ -6,203 +6,74 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-model Empresa {
-  id             Int      @id @default(autoincrement())
-  nome           String
-  slogan         String?
-  logoUrl        String?  @map("logo_url")
-  telefone       String?
-  whatsapp       String?
-  email          String?
-  endereco       String?
-  corPrincipal   String   @default("#ec4899") @map("cor_principal")
-  corSecundaria  String   @default("#9333ea") @map("cor_secundaria")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  // Relacionamentos
-  horariosFuncionamento HorarioFuncionamento[]
-  usuarios              Usuario[]
-  atendentes            Atendente[]
-  servicos              Servico[]
-  clientes              Cliente[]
-  agendamentos          Agendamento[]
-  bloqueios             Bloqueio[]
-  movimentacoes         MovimentacaoFinanceira[]
-
-  @@map("empresas")
-}
-
-model HorarioFuncionamento {
-  id          Int      @id @default(autoincrement())
-  empresaId   Int      @map("empresa_id")
-  diaSemana   Int      @map("dia_semana") // 0=domingo, 1=segunda, etc
-  horaInicio  String?  @map("hora_inicio")
-  horaFim     String?  @map("hora_fim")
-  ativo       Boolean  @default(true)
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  // Relacionamentos
-  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-
-  @@map("horarios_funcionamento")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 model Usuario {
-  id           Int      @id @default(autoincrement())
-  empresaId    Int      @map("empresa_id")
-  nome         String
-  email        String   @unique
-  senhaHash    String   @map("senha_hash")
-  tipoUsuario  String   @map("tipo_usuario") // 'admin' ou 'atendente'
-  ativo        Boolean  @default(true)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id        Int      @id @default(autoincrement())
+  nome      String
+  email     String   @unique
+  senha     String
+  tipo      String   // ADMIN, ATENDENTE
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relacionamentos
-  empresa   Empresa    @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   atendente Atendente?
 
   @@map("usuarios")
 }
 
-model Atendente {
-  id             Int      @id @default(autoincrement())
-  usuarioId      Int?     @unique @map("usuario_id")
-  empresaId      Int      @map("empresa_id")
-  nome           String
-  especialidades String[]
-  corAgenda      String   @default("#3b82f6") @map("cor_agenda")
-  ativo          Boolean  @default(true)
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  // Relacionamentos
-  usuario          Usuario?                @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
-  empresa          Empresa                 @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  horariosAtendente HorarioAtendente[]
-  agendamentos     Agendamento[]
-  bloqueios        Bloqueio[]
-  movimentacoes    MovimentacaoFinanceira[]
-
-  @@map("atendentes")
-}
-
-model HorarioAtendente {
-  id          Int      @id @default(autoincrement())
-  atendenteId Int      @map("atendente_id")
-  diaSemana   Int      @map("dia_semana")
-  horaInicio  String   @map("hora_inicio")
-  horaFim     String   @map("hora_fim")
-  ativo       Boolean  @default(true)
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  // Relacionamentos
-  atendente Atendente @relation(fields: [atendenteId], references: [id], onDelete: Cascade)
-
-  @@map("horarios_atendentes")
-}
-
 model Servico {
-  id              Int      @id @default(autoincrement())
-  empresaId       Int      @map("empresa_id")
-  nome            String
-  descricao       String?
-  preco           Decimal  @db.Decimal(10, 2)
-  duracaoMinutos  Int      @map("duracao_minutos")
-  cor             String   @default("#10b981")
-  ativo           Boolean  @default(true)
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id               Int      @id @default(autoincrement())
+  nome             String
+  descricao        String?
+  preco            Decimal  @db.Decimal(10, 2)
+  duracaoMinutos   Int      @map("duracao")
+  ativo            Boolean  @default(true)
+  empresaId        Int      @default(1)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   // Relacionamentos
-  empresa      Empresa       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   agendamentos Agendamento[]
 
   @@map("servicos")
 }
 
-model Cliente {
-  id              Int       @id @default(autoincrement())
-  empresaId       Int       @map("empresa_id")
-  nome            String
-  telefone        String?
-  email           String?
-  dataNascimento  DateTime? @map("data_nascimento") @db.Date
-  observacoes     String?
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+model Atendente {
+  id             Int      @id @default(autoincrement())
+  usuarioId      Int      @unique
+  especialidades String[] // Array de strings
+  corAgenda      String   @map("cor")
+  ativo          Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relacionamentos
-  empresa      Empresa       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  usuario      Usuario       @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   agendamentos Agendamento[]
 
-  @@map("clientes")
+  @@map("atendentes")
 }
 
 model Agendamento {
-  id                  Int      @id @default(autoincrement())
-  empresaId           Int      @map("empresa_id")
-  clienteId           Int      @map("cliente_id")
-  atendenteId         Int      @map("atendente_id")
-  servicoId           Int      @map("servico_id")
-  dataAgendamento     DateTime @map("data_agendamento") @db.Date
-  horaInicio          String   @map("hora_inicio")
-  horaFim             String   @map("hora_fim")
-  status              String   @default("agendado") // 'agendado', 'confirmado', 'realizado', 'cancelado', 'faltou'
-  valor               Decimal? @db.Decimal(10, 2)
-  observacoes         String?
-  tokenCancelamento   String?  @unique @map("token_cancelamento")
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
+  id              Int      @id @default(autoincrement())
+  clienteNome     String
+  clienteTelefone String
+  clienteEmail    String?
+  clienteObs      String?
+  servicoId       Int
+  atendenteId     Int
+  dataHora        DateTime
+  status          String   @default("CONFIRMADO") // CONFIRMADO, CANCELADO, CONCLUIDO
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relacionamentos
-  empresa             Empresa                  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  cliente             Cliente                  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  atendente           Atendente                @relation(fields: [atendenteId], references: [id], onDelete: Cascade)
-  servico             Servico                  @relation(fields: [servicoId], references: [id], onDelete: Cascade)
-  movimentacoes       MovimentacaoFinanceira[]
+  servico   Servico   @relation(fields: [servicoId], references: [id])
+  atendente Atendente @relation(fields: [atendenteId], references: [id])
 
   @@map("agendamentos")
-}
-
-model Bloqueio {
-  id          Int      @id @default(autoincrement())
-  empresaId   Int      @map("empresa_id")
-  atendenteId Int?     @map("atendente_id")
-  dataInicio  DateTime @map("data_inicio")
-  dataFim     DateTime @map("data_fim")
-  motivo      String?
-  tipo        String   @default("folga") // 'folga', 'compromisso', 'manutencao'
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  // Relacionamentos
-  empresa   Empresa    @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  atendente Atendente? @relation(fields: [atendenteId], references: [id], onDelete: Cascade)
-
-  @@map("bloqueios")
-}
-
-model MovimentacaoFinanceira {
-  id                Int          @id @default(autoincrement())
-  empresaId         Int          @map("empresa_id")
-  agendamentoId     Int?         @map("agendamento_id")
-  atendenteId       Int?         @map("atendente_id")
-  tipo              String       // 'entrada' ou 'saida'
-  categoria         String?
-  descricao         String?
-  valor             Decimal      @db.Decimal(10, 2)
-  dataMovimentacao  DateTime     @map("data_movimentacao") @db.Date
-  createdAt         DateTime     @default(now()) @map("created_at")
-
-  // Relacionamentos
-  empresa     Empresa      @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  agendamento Agendamento? @relation(fields: [agendamentoId], references: [id], onDelete: SetNull)
-  atendente   Atendente?   @relation(fields: [atendenteId], references: [id], onDelete: SetNull)
-
-  @@map("movimentacoes_financeiras")
 }

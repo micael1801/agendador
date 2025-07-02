@@ -1,173 +1,104 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const startDate = searchParams.get("startDate")
-    const endDate = searchParams.get("endDate")
-    const atendenteId = searchParams.get("atendenteId")
-
-    const whereClause: any = {}
-
-    if (startDate && endDate) {
-      whereClause.dataAgendamento = {
-        gte: new Date(startDate),
-        lte: new Date(endDate),
-      }
-    }
-
-    if (atendenteId && atendenteId !== "todos") {
-      whereClause.atendenteId = Number.parseInt(atendenteId)
-    }
-
-    const agendamentos = await prisma.agendamento.findMany({
-      where: whereClause,
-      include: {
-        cliente: {
-          select: {
-            nome: true,
-            telefone: true,
-            email: true,
-          },
-        },
-        atendente: {
-          select: {
-            id: true,
-            nome: true,
-            corAgenda: true,
-          },
-        },
-        servico: {
-          select: {
-            nome: true,
-            cor: true,
-            duracaoMinutos: true,
-          },
-        },
-      },
-      orderBy: [{ dataAgendamento: "asc" }, { horaInicio: "asc" }],
-    })
-
-    return NextResponse.json(agendamentos)
-  } catch (error) {
-    console.error("Erro ao buscar agendamentos:", error)
-    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
-  }
-}
-
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const {
-      clienteNome,
-      clienteTelefone,
-      clienteEmail,
-      servicoId,
-      atendenteId,
-      dataAgendamento,
-      horaInicio,
-      observacoes,
-    } = body
+    const { servicoId, atendenteId, dataAgendamento, horaInicio, clienteData } = body
 
-    // Validações básicas
-    if (!clienteNome || !clienteTelefone || !servicoId || !atendenteId || !dataAgendamento || !horaInicio) {
+    // Validar dados obrigatórios
+    if (!servicoId || !atendenteId || !dataAgendamento || !horaInicio || !clienteData?.nome || !clienteData?.telefone) {
       return NextResponse.json({ error: "Dados obrigatórios não fornecidos" }, { status: 400 })
     }
 
-    // Buscar o serviço para calcular hora fim e valor
-    const servico = await prisma.servico.findUnique({
-      where: { id: Number.parseInt(servicoId) },
-    })
+    // Criar a data/hora do agendamento
+    const dataHora = new Date(`${dataAgendamento}T${horaInicio}:00`)
 
-    if (!servico) {
-      return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 })
-    }
-
-    // Calcular hora fim
-    const [hora, minuto] = horaInicio.split(":").map(Number)
-    const inicioMinutos = hora * 60 + minuto
-    const fimMinutos = inicioMinutos + servico.duracaoMinutos
-    const horaFim = `${Math.floor(fimMinutos / 60)
-      .toString()
-      .padStart(2, "0")}:${(fimMinutos % 60).toString().padStart(2, "0")}`
-
-    // Verificar conflitos de horário
-    const conflito = await prisma.agendamento.findFirst({
+    // Verificar se o horário ainda está disponível
+    const agendamentoExistente = await prisma.agendamento.findFirst({
       where: {
         atendenteId: Number.parseInt(atendenteId),
-        dataAgendamento: new Date(dataAgendamento),
-        OR: [
-          {
-            AND: [{ horaInicio: { lte: horaInicio } }, { horaFim: { gt: horaInicio } }],
-          },
-          {
-            AND: [{ horaInicio: { lt: horaFim } }, { horaFim: { gte: horaFim } }],
-          },
-          {
-            AND: [{ horaInicio: { gte: horaInicio } }, { horaFim: { lte: horaFim } }],
-          },
-        ],
-        status: { not: "cancelado" },
-      },
-    })
-
-    if (conflito) {
-      return NextResponse.json({ error: "Já existe um agendamento neste horário" }, { status: 409 })
-    }
-
-    // Buscar primeira empresa (assumindo single-tenant)
-    const empresa = await prisma.empresa.findFirst()
-    if (!empresa) {
-      return NextResponse.json({ error: "Empresa não encontrada" }, { status: 404 })
-    }
-
-    // Criar ou buscar cliente
-    let cliente = await prisma.cliente.findFirst({
-      where: {
-        telefone: clienteTelefone,
-        empresaId: empresa.id,
-      },
-    })
-
-    if (!cliente) {
-      cliente = await prisma.cliente.create({
-        data: {
-          empresaId: empresa.id,
-          nome: clienteNome,
-          telefone: clienteTelefone,
-          email: clienteEmail,
+        dataHora: dataHora,
+        status: {
+          not: "CANCELADO",
         },
-      })
+      },
+    })
+
+    if (agendamentoExistente) {
+      return NextResponse.json({ error: "Horário não está mais disponível" }, { status: 409 })
     }
 
-    // Criar agendamento
-    const agendamento = await prisma.agendamento.create({
+    // Criar o agendamento
+    const novoAgendamento = await prisma.agendamento.create({
       data: {
-        empresaId: empresa.id,
-        clienteId: cliente.id,
-        atendenteId: Number.parseInt(atendenteId),
         servicoId: Number.parseInt(servicoId),
-        dataAgendamento: new Date(dataAgendamento),
-        horaInicio,
-        horaFim,
-        valor: servico.preco,
-        observacoes,
-        status: "agendado",
+        atendenteId: Number.parseInt(atendenteId),
+        dataHora: dataHora,
+        clienteNome: clienteData.nome,
+        clienteTelefone: clienteData.telefone,
+        clienteEmail: clienteData.email || null,
+        clienteObs: clienteData.observacoes || null,
+        status: "CONFIRMADO",
       },
       include: {
-        cliente: true,
-        atendente: true,
         servico: true,
+        atendente: {
+          include: {
+            usuario: true,
+          },
+        },
       },
     })
 
     return NextResponse.json({
       success: true,
-      agendamento,
+      agendamento: {
+        id: novoAgendamento.id,
+        servico: novoAgendamento.servico.nome,
+        atendente: novoAgendamento.atendente.usuario.nome,
+        dataHora: novoAgendamento.dataHora,
+        cliente: novoAgendamento.clienteNome,
+        telefone: novoAgendamento.clienteTelefone,
+      },
     })
   } catch (error) {
     console.error("Erro ao criar agendamento:", error)
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
+  }
+}
+
+export async function GET() {
+  try {
+    const agendamentos = await prisma.agendamento.findMany({
+      include: {
+        servico: true,
+        atendente: {
+          include: {
+            usuario: true,
+          },
+        },
+      },
+      orderBy: {
+        dataHora: "asc",
+      },
+    })
+
+    const agendamentosFormatados = agendamentos.map((agendamento) => ({
+      id: agendamento.id,
+      clienteNome: agendamento.clienteNome,
+      clienteTelefone: agendamento.clienteTelefone,
+      clienteEmail: agendamento.clienteEmail,
+      servico: agendamento.servico.nome,
+      atendente: agendamento.atendente.usuario.nome,
+      dataHora: agendamento.dataHora,
+      status: agendamento.status,
+      preco: Number(agendamento.servico.preco),
+    }))
+
+    return NextResponse.json(agendamentosFormatados)
+  } catch (error) {
+    console.error("Erro ao buscar agendamentos:", error)
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
   }
 }
