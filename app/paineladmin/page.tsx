@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar, Users, Settings, DollarSign, TrendingUp, CalendarDays, Scissors } from "lucide-react"
+import { Calendar, Users, Settings, DollarSign, TrendingUp, CalendarDays, Scissors, Eye } from "lucide-react"
+import Link from "next/link"
 
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState("dashboard")
@@ -21,6 +22,12 @@ export default function AdminPanel() {
               <p className="text-gray-600">Gerencie seu salão de forma completa</p>
             </div>
             <div className="flex items-center space-x-4">
+              <Button asChild variant="outline">
+                <Link href="/agenda">
+                  <Eye className="w-4 h-4 mr-2" />
+                  Ver Agenda
+                </Link>
+              </Button>
               <Badge variant="outline" className="text-green-600 border-green-600">
                 Online
               </Badge>
