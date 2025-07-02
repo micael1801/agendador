@@ -5,7 +5,10 @@ import { signToken } from "@/lib/jwt"
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, senha } = await request.json()
+    const body = await request.json()
+    const { email, senha } = body
+
+    console.log("Tentativa de login:", { email })
 
     if (!email || !senha) {
       return NextResponse.json({ error: "Email e senha são obrigatórios" }, { status: 400 })
@@ -19,19 +22,23 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    if (!usuario) {
-      return NextResponse.json({ error: "Credenciais inválidas" }, { status: 401 })
-    }
+    console.log("Usuário encontrado:", usuario ? "Sim" : "Não")
 
-    // Verificar senha
-    const senhaValida = await comparePassword(senha, usuario.senhaHash)
-    if (!senhaValida) {
+    if (!usuario) {
       return NextResponse.json({ error: "Credenciais inválidas" }, { status: 401 })
     }
 
     // Verificar se usuário está ativo
     if (!usuario.ativo) {
       return NextResponse.json({ error: "Usuário inativo" }, { status: 401 })
+    }
+
+    // Verificar senha
+    const senhaValida = await comparePassword(senha, usuario.senhaHash)
+    console.log("Senha válida:", senhaValida)
+
+    if (!senhaValida) {
+      return NextResponse.json({ error: "Credenciais inválidas" }, { status: 401 })
     }
 
     // Gerar token JWT
@@ -41,6 +48,8 @@ export async function POST(request: NextRequest) {
       tipoUsuario: usuario.tipoUsuario,
       empresaId: usuario.empresaId,
     })
+
+    console.log("Token gerado com sucesso")
 
     // Criar resposta com cookie
     const response = NextResponse.json({
@@ -60,6 +69,7 @@ export async function POST(request: NextRequest) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7, // 7 dias
+      path: "/",
     })
 
     return response

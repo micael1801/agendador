@@ -5,11 +5,11 @@ import { verifyToken } from "./lib/jwt"
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Rotas que precisam de autenticação
-  const protectedRoutes = ["/agenda", "/paineladmin"]
+  // Rotas que precisam de autenticação (apenas painel admin e agenda)
+  const protectedRoutes = ["/paineladmin", "/agenda"]
 
   // Rotas que só podem ser acessadas sem autenticação
-  const authRoutes = ["/login", "/cadastro"]
+  const authRoutes = ["/login"]
 
   const token = request.cookies.get("auth-token")?.value
 

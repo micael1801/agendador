@@ -1,15 +1,17 @@
 import jwt from "jsonwebtoken"
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production"
+const JWT_SECRET = process.env.JWT_SECRET || "sua-chave-secreta-muito-segura"
 
 export interface JWTPayload {
   userId: number
   email: string
   tipoUsuario: string
   empresaId: number
+  iat?: number
+  exp?: number
 }
 
-export function signToken(payload: JWTPayload): string {
+export function signToken(payload: Omit<JWTPayload, "iat" | "exp">): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" })
 }
 

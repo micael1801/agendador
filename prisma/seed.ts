@@ -1,382 +1,299 @@
 import { PrismaClient } from "@prisma/client"
-import bcrypt from "bcryptjs"
+import { hashPassword } from "../lib/auth"
 
 const prisma = new PrismaClient()
 
 async function main() {
   console.log("🌱 Iniciando seed do banco de dados...")
 
-  // Limpar dados existentes (opcional - remova se não quiser limpar)
-  await prisma.agendamento.deleteMany()
-  await prisma.cliente.deleteMany()
-  await prisma.horarioAtendente.deleteMany()
-  await prisma.atendente.deleteMany()
-  await prisma.usuario.deleteMany()
-  await prisma.servico.deleteMany()
-  await prisma.horarioFuncionamento.deleteMany()
-  await prisma.empresa.deleteMany()
-
   // Criar empresa
-  const empresa = await prisma.empresa.create({
-    data: {
+  const empresa = await prisma.empresa.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
       nome: "Salão Exemplo",
       slogan: "Beleza e bem-estar",
       telefone: "(11) 99999-9999",
       whatsapp: "(11) 99999-9999",
       email: "contato@salaoexemplo.com",
       endereco: "Rua das Flores, 123 - Centro",
-      corPrincipal: "#ec4899",
+      corPrimaria: "#ec4899",
       corSecundaria: "#9333ea",
     },
   })
 
-  console.log("✅ Empresa criada:", empresa.nome)
+  console.log("✅ Empresa criada")
 
   // Criar serviços
   const servicos = await Promise.all([
-    prisma.servico.create({
-      data: {
+    prisma.servico.upsert({
+      where: { id: 1 },
+      update: {},
+      create: {
+        id: 1,
         empresaId: empresa.id,
         nome: "Corte Feminino",
-        descricao: "Corte personalizado para mulheres",
+        descricao: "Corte moderno e estiloso",
         preco: 45.0,
-        duracaoMinutos: 45,
+        duracaoMinutos: 60,
         cor: "#ec4899",
+        ativo: true,
       },
     }),
-    prisma.servico.create({
-      data: {
+    prisma.servico.upsert({
+      where: { id: 2 },
+      update: {},
+      create: {
+        id: 2,
         empresaId: empresa.id,
         nome: "Corte Masculino",
-        descricao: "Corte tradicional masculino",
+        descricao: "Corte clássico e moderno",
         preco: 25.0,
         duracaoMinutos: 30,
         cor: "#3b82f6",
+        ativo: true,
       },
     }),
-    prisma.servico.create({
-      data: {
-        empresaId: empresa.id,
-        nome: "Coloração",
-        descricao: "Coloração completa dos cabelos",
-        preco: 120.0,
-        duracaoMinutos: 120,
-        cor: "#8b5cf6",
-      },
-    }),
-    prisma.servico.create({
-      data: {
+    prisma.servico.upsert({
+      where: { id: 3 },
+      update: {},
+      create: {
+        id: 3,
         empresaId: empresa.id,
         nome: "Escova",
         descricao: "Escova modeladora",
         preco: 35.0,
-        duracaoMinutos: 40,
+        duracaoMinutos: 45,
         cor: "#10b981",
+        ativo: true,
       },
     }),
-    prisma.servico.create({
-      data: {
+    prisma.servico.upsert({
+      where: { id: 4 },
+      update: {},
+      create: {
+        id: 4,
         empresaId: empresa.id,
-        nome: "Hidratação",
-        descricao: "Tratamento hidratante para cabelos",
-        preco: 60.0,
-        duracaoMinutos: 60,
-        cor: "#06b6d4",
+        nome: "Coloração",
+        descricao: "Coloração completa",
+        preco: 120.0,
+        duracaoMinutos: 120,
+        cor: "#f59e0b",
+        ativo: true,
       },
     }),
-    prisma.servico.create({
-      data: {
+    prisma.servico.upsert({
+      where: { id: 5 },
+      update: {},
+      create: {
+        id: 5,
         empresaId: empresa.id,
         nome: "Manicure",
-        descricao: "Cuidados para as unhas das mãos",
+        descricao: "Cuidados com as unhas",
         preco: 20.0,
-        duracaoMinutos: 30,
-        cor: "#f59e0b",
+        duracaoMinutos: 45,
+        cor: "#ef4444",
+        ativo: true,
       },
     }),
   ])
 
-  console.log("✅ Serviços criados:", servicos.length)
-
-  // Hash da senha padrão (123456)
-  const senhaHash = await bcrypt.hash("123456", 12)
-
-  // Criar usuários
-  const usuarios = await Promise.all([
-    prisma.usuario.create({
-      data: {
-        empresaId: empresa.id,
-        nome: "Admin Sistema",
-        email: "admin@salao.com",
-        senhaHash,
-        tipoUsuario: "admin",
-      },
-    }),
-    prisma.usuario.create({
-      data: {
-        empresaId: empresa.id,
-        nome: "Maria Silva",
-        email: "maria@salao.com",
-        senhaHash,
-        tipoUsuario: "atendente",
-      },
-    }),
-    prisma.usuario.create({
-      data: {
-        empresaId: empresa.id,
-        nome: "Ana Costa",
-        email: "ana@salao.com",
-        senhaHash,
-        tipoUsuario: "atendente",
-      },
-    }),
-    prisma.usuario.create({
-      data: {
-        empresaId: empresa.id,
-        nome: "Julia Santos",
-        email: "julia@salao.com",
-        senhaHash,
-        tipoUsuario: "atendente",
-      },
-    }),
-  ])
-
-  console.log("✅ Usuários criados:", usuarios.length)
+  console.log("✅ Serviços criados")
 
   // Criar atendentes
   const atendentes = await Promise.all([
-    prisma.atendente.create({
-      data: {
-        usuarioId: usuarios[1].id, // Maria
+    prisma.atendente.upsert({
+      where: { id: 1 },
+      update: {},
+      create: {
+        id: 1,
         empresaId: empresa.id,
         nome: "Maria Silva",
-        especialidades: ["Corte Feminino", "Coloração", "Escova"],
+        telefone: "(11) 98888-8888",
+        email: "maria@salaoexemplo.com",
+        especialidades: ["Corte Feminino", "Escova", "Coloração"],
         corAgenda: "#ec4899",
+        ativo: true,
       },
     }),
-    prisma.atendente.create({
-      data: {
-        usuarioId: usuarios[2].id, // Ana
+    prisma.atendente.upsert({
+      where: { id: 2 },
+      update: {},
+      create: {
+        id: 2,
         empresaId: empresa.id,
         nome: "Ana Costa",
-        especialidades: ["Corte Feminino", "Corte Masculino", "Hidratação"],
-        corAgenda: "#8b5cf6",
+        telefone: "(11) 97777-7777",
+        email: "ana@salaoexemplo.com",
+        especialidades: ["Corte Feminino", "Corte Masculino", "Escova"],
+        corAgenda: "#3b82f6",
+        ativo: true,
       },
     }),
-    prisma.atendente.create({
-      data: {
-        usuarioId: usuarios[3].id, // Julia
+    prisma.atendente.upsert({
+      where: { id: 3 },
+      update: {},
+      create: {
+        id: 3,
         empresaId: empresa.id,
         nome: "Julia Santos",
-        especialidades: ["Manicure", "Escova"],
+        telefone: "(11) 96666-6666",
+        email: "julia@salaoexemplo.com",
+        especialidades: ["Manicure", "Coloração"],
         corAgenda: "#10b981",
+        ativo: true,
       },
     }),
   ])
 
-  console.log("✅ Atendentes criados:", atendentes.length)
+  console.log("✅ Atendentes criados")
 
-  // Criar horários de funcionamento
-  const diasSemana = [
-    { dia: 1, inicio: "08:00", fim: "18:00" }, // Segunda
-    { dia: 2, inicio: "08:00", fim: "18:00" }, // Terça
-    { dia: 3, inicio: "08:00", fim: "18:00" }, // Quarta
-    { dia: 4, inicio: "08:00", fim: "18:00" }, // Quinta
-    { dia: 5, inicio: "08:00", fim: "18:00" }, // Sexta
-    { dia: 6, inicio: "08:00", fim: "17:00" }, // Sábado
-  ]
+  // Criar usuários
+  const adminPassword = await hashPassword("123456")
+  const mariaPassword = await hashPassword("123456")
+  const anaPassword = await hashPassword("123456")
+  const juliaPassword = await hashPassword("123456")
 
-  for (const horario of diasSemana) {
-    await prisma.horarioFuncionamento.create({
-      data: {
+  const usuarios = await Promise.all([
+    prisma.usuario.upsert({
+      where: { email: "admin@salao.com" },
+      update: {},
+      create: {
         empresaId: empresa.id,
-        diaSemana: horario.dia,
-        horaInicio: horario.inicio,
-        horaFim: horario.fim,
+        nome: "Administrador",
+        email: "admin@salao.com",
+        senhaHash: adminPassword,
+        tipoUsuario: "admin",
+        ativo: true,
       },
-    })
-  }
+    }),
+    prisma.usuario.upsert({
+      where: { email: "maria@salao.com" },
+      update: {},
+      create: {
+        empresaId: empresa.id,
+        nome: "Maria Silva",
+        email: "maria@salao.com",
+        senhaHash: mariaPassword,
+        tipoUsuario: "atendente",
+        atendenteId: atendentes[0].id,
+        ativo: true,
+      },
+    }),
+    prisma.usuario.upsert({
+      where: { email: "ana@salao.com" },
+      update: {},
+      create: {
+        empresaId: empresa.id,
+        nome: "Ana Costa",
+        email: "ana@salao.com",
+        senhaHash: anaPassword,
+        tipoUsuario: "atendente",
+        atendenteId: atendentes[1].id,
+        ativo: true,
+      },
+    }),
+    prisma.usuario.upsert({
+      where: { email: "julia@salao.com" },
+      update: {},
+      create: {
+        empresaId: empresa.id,
+        nome: "Julia Santos",
+        email: "julia@salao.com",
+        senhaHash: juliaPassword,
+        tipoUsuario: "atendente",
+        atendenteId: atendentes[2].id,
+        ativo: true,
+      },
+    }),
+  ])
 
-  console.log("✅ Horários de funcionamento criados")
-
-  // Criar horários dos atendentes (todos trabalham nos mesmos horários da empresa)
-  for (const atendente of atendentes) {
-    for (const horario of diasSemana) {
-      await prisma.horarioAtendente.create({
-        data: {
-          atendenteId: atendente.id,
-          diaSemana: horario.dia,
-          horaInicio: horario.inicio,
-          horaFim: horario.fim,
-        },
-      })
-    }
-  }
-
-  console.log("✅ Horários dos atendentes criados")
+  console.log("✅ Usuários criados")
 
   // Criar alguns clientes de exemplo
   const clientes = await Promise.all([
-    prisma.cliente.create({
-      data: {
+    prisma.cliente.upsert({
+      where: { id: 1 },
+      update: {},
+      create: {
+        id: 1,
         empresaId: empresa.id,
         nome: "João Silva",
-        telefone: "(11) 98888-8888",
+        telefone: "(11) 95555-5555",
         email: "joao@email.com",
       },
     }),
-    prisma.cliente.create({
-      data: {
+    prisma.cliente.upsert({
+      where: { id: 2 },
+      update: {},
+      create: {
+        id: 2,
         empresaId: empresa.id,
-        nome: "Maria Oliveira",
-        telefone: "(11) 97777-7777",
-        email: "maria@email.com",
-      },
-    }),
-    prisma.cliente.create({
-      data: {
-        empresaId: empresa.id,
-        nome: "Pedro Santos",
-        telefone: "(11) 96666-6666",
-        email: "pedro@email.com",
-      },
-    }),
-    prisma.cliente.create({
-      data: {
-        empresaId: empresa.id,
-        nome: "Ana Lima",
-        telefone: "(11) 95555-5555",
-        email: "ana@email.com",
+        nome: "Carla Oliveira",
+        telefone: "(11) 94444-4444",
+        email: "carla@email.com",
       },
     }),
   ])
 
-  console.log("✅ Clientes criados:", clientes.length)
+  console.log("✅ Clientes criados")
 
   // Criar alguns agendamentos de exemplo
   const hoje = new Date()
   const amanha = new Date(hoje)
   amanha.setDate(hoje.getDate() + 1)
-  const depoisAmanha = new Date(hoje)
-  depoisAmanha.setDate(hoje.getDate() + 2)
 
-  const agendamentos = await Promise.all([
-    prisma.agendamento.create({
-      data: {
+  await Promise.all([
+    prisma.agendamento.upsert({
+      where: { id: 1 },
+      update: {},
+      create: {
+        id: 1,
         empresaId: empresa.id,
         clienteId: clientes[0].id,
         atendenteId: atendentes[0].id,
-        servicoId: servicos[0].id, // Corte Feminino
+        servicoId: servicos[0].id,
         dataAgendamento: hoje,
         horaInicio: "09:00",
-        horaFim: "09:45",
-        valor: 45.0,
-        status: "confirmado",
-      },
-    }),
-    prisma.agendamento.create({
-      data: {
-        empresaId: empresa.id,
-        clienteId: clientes[1].id,
-        atendenteId: atendentes[1].id,
-        servicoId: servicos[1].id, // Corte Masculino
-        dataAgendamento: hoje,
-        horaInicio: "10:00",
-        horaFim: "10:30",
-        valor: 25.0,
+        horaFim: "10:00",
+        valor: servicos[0].preco,
         status: "agendado",
       },
     }),
-    prisma.agendamento.create({
-      data: {
+    prisma.agendamento.upsert({
+      where: { id: 2 },
+      update: {},
+      create: {
+        id: 2,
         empresaId: empresa.id,
-        clienteId: clientes[2].id,
-        atendenteId: atendentes[0].id,
-        servicoId: servicos[2].id, // Coloração
-        dataAgendamento: hoje,
+        clienteId: clientes[1].id,
+        atendenteId: atendentes[1].id,
+        servicoId: servicos[1].id,
+        dataAgendamento: amanha,
         horaInicio: "14:00",
-        horaFim: "16:00",
-        valor: 120.0,
-        status: "confirmado",
-      },
-    }),
-    prisma.agendamento.create({
-      data: {
-        empresaId: empresa.id,
-        clienteId: clientes[3].id,
-        atendenteId: atendentes[2].id,
-        servicoId: servicos[5].id, // Manicure
-        dataAgendamento: hoje,
-        horaInicio: "15:00",
-        horaFim: "15:30",
-        valor: 20.0,
-        status: "agendado",
-      },
-    }),
-    prisma.agendamento.create({
-      data: {
-        empresaId: empresa.id,
-        clienteId: clientes[0].id,
-        atendenteId: atendentes[1].id,
-        servicoId: servicos[0].id, // Corte Feminino
-        dataAgendamento: amanha,
-        horaInicio: "09:00",
-        horaFim: "09:45",
-        valor: 45.0,
-        status: "agendado",
-      },
-    }),
-    prisma.agendamento.create({
-      data: {
-        empresaId: empresa.id,
-        clienteId: clientes[1].id,
-        atendenteId: atendentes[0].id,
-        servicoId: servicos[3].id, // Escova
-        dataAgendamento: amanha,
-        horaInicio: "11:00",
-        horaFim: "11:40",
-        valor: 35.0,
-        status: "agendado",
-      },
-    }),
-    prisma.agendamento.create({
-      data: {
-        empresaId: empresa.id,
-        clienteId: clientes[2].id,
-        atendenteId: atendentes[2].id,
-        servicoId: servicos[5].id, // Manicure
-        dataAgendamento: depoisAmanha,
-        horaInicio: "10:00",
-        horaFim: "10:30",
-        valor: 20.0,
+        horaFim: "14:30",
+        valor: servicos[1].preco,
         status: "agendado",
       },
     }),
   ])
 
-  console.log("✅ Agendamentos criados:", agendamentos.length)
+  console.log("✅ Agendamentos criados")
 
   console.log("🎉 Seed concluído com sucesso!")
-  console.log("\n📋 Resumo:")
-  console.log(`- 1 empresa: ${empresa.nome}`)
-  console.log(`- ${servicos.length} serviços`)
-  console.log(`- ${usuarios.length} usuários`)
-  console.log(`- ${atendentes.length} atendentes`)
-  console.log(`- ${clientes.length} clientes`)
-  console.log(`- ${agendamentos.length} agendamentos`)
-  console.log("\n🔑 Credenciais de teste:")
-  console.log("- Admin: admin@salao.com / 123456")
-  console.log("- Maria: maria@salao.com / 123456")
-  console.log("- Ana: ana@salao.com / 123456")
-  console.log("- Julia: julia@salao.com / 123456")
+  console.log("\n📋 Credenciais de acesso:")
+  console.log("👤 Admin: admin@salao.com / 123456")
+  console.log("👤 Maria: maria@salao.com / 123456")
+  console.log("👤 Ana: ana@salao.com / 123456")
+  console.log("👤 Julia: julia@salao.com / 123456")
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect()
-  })
-  .catch(async (e) => {
+  .catch((e) => {
     console.error("❌ Erro no seed:", e)
-    await prisma.$disconnect()
     process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
   })
