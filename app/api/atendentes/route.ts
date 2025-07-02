@@ -1,52 +1,74 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const servicoId = searchParams.get("servicoId")
-
-    if (!servicoId) {
-      return NextResponse.json({ error: "servicoId é obrigatório" }, { status: 400 })
-    }
-
-    // Buscar o serviço para obter o nome
-    const servico = await prisma.servico.findUnique({
-      where: { id: Number.parseInt(servicoId) },
-    })
-
-    if (!servico) {
-      return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 })
-    }
-
-    // Buscar atendentes que têm especialidade no serviço
     const atendentes = await prisma.atendente.findMany({
       where: {
         ativo: true,
-        especialidades: {
-          has: servico.nome,
-        },
       },
       include: {
         usuario: {
           select: {
             nome: true,
+            email: true,
+          },
+        },
+        horariosAtendente: {
+          where: {
+            ativo: true,
           },
         },
       },
+      orderBy: {
+        nome: "asc",
+      },
     })
 
-    // Formatar resposta
-    const atendentesList = atendentes.map((atendente) => ({
-      id: atendente.id,
-      nome: atendente.usuario.nome,
-      especialidades: atendente.especialidades,
-      corAgenda: atendente.corAgenda,
-    }))
-
-    return NextResponse.json(atendentesList)
+    return NextResponse.json(atendentes)
   } catch (error) {
     console.error("Erro ao buscar atendentes:", error)
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { nome, email, especialidades, corAgenda } = body
+
+    // Validações básicas
+    if (!nome || !email) {
+      return NextResponse.json({ error: "Nome e email são obrigatórios" }, { status: 400 })
+    }
+
+    // Criar usuário primeiro
+    const usuario = await prisma.usuario.create({
+      data: {
+        empresaId: 1, // Por enquanto fixo
+        nome,
+        email,
+        senhaHash: "temp", // Implementar geração de senha depois
+        tipoUsuario: "atendente",
+        ativo: true,
+      },
+    })
+
+    // Criar atendente
+    const atendente = await prisma.atendente.create({
+      data: {
+        usuarioId: usuario.id,
+        empresaId: 1,
+        nome,
+        especialidades: especialidades || [],
+        corAgenda: corAgenda || "#3b82f6",
+        ativo: true,
+      },
+    })
+
+    return NextResponse.json(atendente, { status: 201 })
+  } catch (error) {
+    console.error("Erro ao criar atendente:", error)
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
   }
 }
