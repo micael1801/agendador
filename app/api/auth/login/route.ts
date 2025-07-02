@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verifyPassword } from "@/lib/auth"
+import { comparePassword } from "@/lib/auth"
 import { signToken } from "@/lib/jwt"
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const { email, senha } = await request.json()
 
@@ -19,14 +19,19 @@ export async function POST(request: Request) {
       },
     })
 
-    if (!usuario || !usuario.ativo) {
+    if (!usuario) {
       return NextResponse.json({ error: "Credenciais inválidas" }, { status: 401 })
     }
 
     // Verificar senha
-    const isValidPassword = await verifyPassword(senha, usuario.senhaHash)
-    if (!isValidPassword) {
+    const senhaValida = await comparePassword(senha, usuario.senhaHash)
+    if (!senhaValida) {
       return NextResponse.json({ error: "Credenciais inválidas" }, { status: 401 })
+    }
+
+    // Verificar se usuário está ativo
+    if (!usuario.ativo) {
+      return NextResponse.json({ error: "Usuário inativo" }, { status: 401 })
     }
 
     // Gerar token JWT
@@ -34,9 +39,10 @@ export async function POST(request: Request) {
       userId: usuario.id,
       email: usuario.email,
       tipoUsuario: usuario.tipoUsuario,
-      atendenteId: usuario.atendente?.id,
+      empresaId: usuario.empresaId,
     })
 
+    // Criar resposta com cookie
     const response = NextResponse.json({
       success: true,
       user: {
@@ -44,12 +50,12 @@ export async function POST(request: Request) {
         nome: usuario.nome,
         email: usuario.email,
         tipoUsuario: usuario.tipoUsuario,
-        atendenteId: usuario.atendente?.id,
+        atendente: usuario.atendente,
       },
     })
 
-    // Definir cookie com o token
-    response.cookies.set("token", token, {
+    // Definir cookie seguro
+    response.cookies.set("auth-token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

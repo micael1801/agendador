@@ -1,24 +1,20 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { addMinutes, format } from "date-fns"
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const startDate = searchParams.get("startDate")
     const endDate = searchParams.get("endDate")
     const atendenteId = searchParams.get("atendenteId")
 
-    if (!startDate || !endDate) {
-      return NextResponse.json({ error: "Datas de início e fim são obrigatórias" }, { status: 400 })
-    }
+    const whereClause: any = {}
 
-    const whereClause: any = {
-      dataAgendamento: {
+    if (startDate && endDate) {
+      whereClause.dataAgendamento = {
         gte: new Date(startDate),
         lte: new Date(endDate),
-      },
-      empresaId: 1,
+      }
     }
 
     if (atendenteId && atendenteId !== "todos") {
@@ -45,6 +41,7 @@ export async function GET(request: Request) {
         servico: {
           select: {
             nome: true,
+            cor: true,
             duracaoMinutos: true,
           },
         },
@@ -52,49 +49,53 @@ export async function GET(request: Request) {
       orderBy: [{ dataAgendamento: "asc" }, { horaInicio: "asc" }],
     })
 
-    // Converter Decimal para number
-    const agendamentosFormatted = agendamentos.map((agendamento) => ({
-      ...agendamento,
-      valor: Number(agendamento.valor),
-      dataAgendamento: agendamento.dataAgendamento.toISOString().split("T")[0],
-    }))
-
-    return NextResponse.json(agendamentosFormatted)
+    return NextResponse.json(agendamentos)
   } catch (error) {
     console.error("Erro ao buscar agendamentos:", error)
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { servicoId, atendenteId, dataAgendamento, horaInicio, clienteData } = body
+    const {
+      clienteNome,
+      clienteTelefone,
+      clienteEmail,
+      servicoId,
+      atendenteId,
+      dataAgendamento,
+      horaInicio,
+      observacoes,
+    } = body
 
-    // Validar dados obrigatórios
-    if (!servicoId || !atendenteId || !dataAgendamento || !horaInicio || !clienteData.nome || !clienteData.telefone) {
+    // Validações básicas
+    if (!clienteNome || !clienteTelefone || !servicoId || !atendenteId || !dataAgendamento || !horaInicio) {
       return NextResponse.json({ error: "Dados obrigatórios não fornecidos" }, { status: 400 })
     }
 
-    // Buscar informações do serviço
+    // Buscar o serviço para calcular hora fim e valor
     const servico = await prisma.servico.findUnique({
-      where: { id: servicoId },
+      where: { id: Number.parseInt(servicoId) },
     })
 
     if (!servico) {
       return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 })
     }
 
-    // Calcular hora de fim baseada na duração do serviço
+    // Calcular hora fim
     const [hora, minuto] = horaInicio.split(":").map(Number)
-    const dataHoraInicio = new Date(dataAgendamento + "T" + horaInicio + ":00")
-    const dataHoraFim = addMinutes(dataHoraInicio, servico.duracaoMinutos)
-    const horaFim = format(dataHoraFim, "HH:mm")
+    const inicioMinutos = hora * 60 + minuto
+    const fimMinutos = inicioMinutos + servico.duracaoMinutos
+    const horaFim = `${Math.floor(fimMinutos / 60)
+      .toString()
+      .padStart(2, "0")}:${(fimMinutos % 60).toString().padStart(2, "0")}`
 
-    // Verificar se já existe agendamento no mesmo horário
-    const agendamentoExistente = await prisma.agendamento.findFirst({
+    // Verificar conflitos de horário
+    const conflito = await prisma.agendamento.findFirst({
       where: {
-        atendenteId: atendenteId,
+        atendenteId: Number.parseInt(atendenteId),
         dataAgendamento: new Date(dataAgendamento),
         OR: [
           {
@@ -111,46 +112,47 @@ export async function POST(request: Request) {
       },
     })
 
-    if (agendamentoExistente) {
-      return NextResponse.json({ error: "Horário não disponível" }, { status: 409 })
+    if (conflito) {
+      return NextResponse.json({ error: "Já existe um agendamento neste horário" }, { status: 409 })
     }
 
-    // Criar ou encontrar cliente
+    // Buscar primeira empresa (assumindo single-tenant)
+    const empresa = await prisma.empresa.findFirst()
+    if (!empresa) {
+      return NextResponse.json({ error: "Empresa não encontrada" }, { status: 404 })
+    }
+
+    // Criar ou buscar cliente
     let cliente = await prisma.cliente.findFirst({
       where: {
-        telefone: clienteData.telefone,
-        empresaId: 1,
+        telefone: clienteTelefone,
+        empresaId: empresa.id,
       },
     })
 
     if (!cliente) {
       cliente = await prisma.cliente.create({
         data: {
-          empresaId: 1,
-          nome: clienteData.nome,
-          telefone: clienteData.telefone,
-          email: clienteData.email || null,
-          observacoes: clienteData.observacoes || null,
+          empresaId: empresa.id,
+          nome: clienteNome,
+          telefone: clienteTelefone,
+          email: clienteEmail,
         },
       })
     }
 
-    // Gerar token para cancelamento
-    const tokenCancelamento = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
-
     // Criar agendamento
     const agendamento = await prisma.agendamento.create({
       data: {
-        empresaId: 1,
+        empresaId: empresa.id,
         clienteId: cliente.id,
-        atendenteId: atendenteId,
-        servicoId: servicoId,
+        atendenteId: Number.parseInt(atendenteId),
+        servicoId: Number.parseInt(servicoId),
         dataAgendamento: new Date(dataAgendamento),
-        horaInicio: horaInicio,
-        horaFim: horaFim,
+        horaInicio,
+        horaFim,
         valor: servico.preco,
-        observacoes: clienteData.observacoes || null,
-        tokenCancelamento: tokenCancelamento,
+        observacoes,
         status: "agendado",
       },
       include: {
@@ -160,26 +162,9 @@ export async function POST(request: Request) {
       },
     })
 
-    // Criar movimentação financeira
-    await prisma.movimentacaoFinanceira.create({
-      data: {
-        empresaId: 1,
-        agendamentoId: agendamento.id,
-        atendenteId: atendenteId,
-        tipo: "entrada",
-        categoria: "Serviço",
-        descricao: `${servico.nome} - ${cliente.nome}`,
-        valor: servico.preco,
-        dataMovimentacao: new Date(dataAgendamento),
-      },
-    })
-
     return NextResponse.json({
       success: true,
-      agendamento: {
-        id: agendamento.id,
-        tokenCancelamento: agendamento.tokenCancelamento,
-      },
+      agendamento,
     })
   } catch (error) {
     console.error("Erro ao criar agendamento:", error)

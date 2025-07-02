@@ -1,12 +1,12 @@
 import jwt from "jsonwebtoken"
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production"
 
 export interface JWTPayload {
   userId: number
   email: string
   tipoUsuario: string
-  atendenteId?: number
+  empresaId: number
 }
 
 export function signToken(payload: JWTPayload): string {

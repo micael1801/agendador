@@ -6,12 +6,12 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Eye, EyeOff, UserPlus, X } from "lucide-react"
+import { Loader2, UserPlus, X } from "lucide-react"
 
 const especialidadesDisponiveis = [
   "Corte Feminino",
@@ -22,56 +22,56 @@ const especialidadesDisponiveis = [
   "Manicure",
   "Pedicure",
   "Penteados",
-  "Barba",
-  "Sobrancelha",
+  "Tratamentos",
 ]
 
 const coresDisponiveis = [
-  "#ec4899", // Pink
-  "#8b5cf6", // Purple
-  "#10b981", // Green
-  "#f59e0b", // Yellow
-  "#ef4444", // Red
-  "#3b82f6", // Blue
-  "#06b6d4", // Cyan
-  "#84cc16", // Lime
+  { nome: "Rosa", valor: "#ec4899" },
+  { nome: "Roxo", valor: "#8b5cf6" },
+  { nome: "Azul", valor: "#3b82f6" },
+  { nome: "Verde", valor: "#10b981" },
+  { nome: "Laranja", valor: "#f59e0b" },
+  { nome: "Vermelho", valor: "#ef4444" },
+  { nome: "Indigo", valor: "#6366f1" },
+  { nome: "Teal", valor: "#14b8a6" },
 ]
 
 export default function CadastroPage() {
-  const [formData, setFormData] = useState({
-    nome: "",
-    email: "",
-    senha: "",
-    confirmarSenha: "",
-    especialidades: [] as string[],
-    corAgenda: "#3b82f6",
-  })
+  const [nome, setNome] = useState("")
+  const [email, setEmail] = useState("")
+  const [senha, setSenha] = useState("")
+  const [confirmarSenha, setConfirmarSenha] = useState("")
+  const [especialidades, setEspecialidades] = useState<string[]>([])
+  const [corAgenda, setCorAgenda] = useState("#3b82f6")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [success, setSuccess] = useState("")
   const router = useRouter()
+
+  const adicionarEspecialidade = (especialidade: string) => {
+    if (!especialidades.includes(especialidade)) {
+      setEspecialidades([...especialidades, especialidade])
+    }
+  }
+
+  const removerEspecialidade = (especialidade: string) => {
+    setEspecialidades(especialidades.filter((e) => e !== especialidade))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError("")
+    setSuccess("")
 
-    // Validações
-    if (formData.senha !== formData.confirmarSenha) {
+    if (senha !== confirmarSenha) {
       setError("As senhas não coincidem")
       setLoading(false)
       return
     }
 
-    if (formData.senha.length < 6) {
+    if (senha.length < 6) {
       setError("A senha deve ter pelo menos 6 caracteres")
-      setLoading(false)
-      return
-    }
-
-    if (formData.especialidades.length === 0) {
-      setError("Selecione pelo menos uma especialidade")
       setLoading(false)
       return
     }
@@ -83,188 +83,185 @@ export default function CadastroPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          nome: formData.nome,
-          email: formData.email,
-          senha: formData.senha,
-          especialidades: formData.especialidades,
-          corAgenda: formData.corAgenda,
+          nome,
+          email,
+          senha,
+          especialidades,
+          corAgenda,
         }),
       })
 
-      const result = await response.json()
+      const data = await response.json()
 
       if (response.ok) {
-        // Redirecionar para login
-        router.push("/login?message=Cadastro realizado com sucesso! Faça login para continuar.")
+        setSuccess("Cadastro realizado com sucesso! Redirecionando...")
+        setTimeout(() => {
+          router.push("/login")
+        }, 2000)
       } else {
-        setError(result.error || "Erro ao criar conta")
+        setError(data.error || "Erro ao fazer cadastro")
       }
     } catch (error) {
-      console.error("Erro no cadastro:", error)
       setError("Erro de conexão. Tente novamente.")
     } finally {
       setLoading(false)
     }
   }
 
-  const toggleEspecialidade = (especialidade: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      especialidades: prev.especialidades.includes(especialidade)
-        ? prev.especialidades.filter((e) => e !== especialidade)
-        : [...prev.especialidades, especialidade],
-    }))
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-2xl">
-        <CardHeader className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg flex items-center justify-center mx-auto mb-4">
-            <UserPlus className="w-8 h-8 text-white" />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 to-purple-50 p-4">
+      <Card className="w-full max-w-lg">
+        <CardHeader className="space-y-1">
+          <div className="flex items-center justify-center mb-4">
+            <div className="w-12 h-12 bg-gradient-to-r from-pink-500 to-purple-600 rounded-full flex items-center justify-center">
+              <UserPlus className="w-6 h-6 text-white" />
+            </div>
           </div>
-          <CardTitle className="text-2xl">Criar Conta</CardTitle>
-          <CardDescription>Cadastre-se como profissional do salão</CardDescription>
+          <CardTitle className="text-2xl text-center">Cadastro de Atendente</CardTitle>
+          <CardDescription className="text-center">Crie sua conta para começar a usar o sistema</CardDescription>
         </CardHeader>
         <CardContent>
-          {error && (
-            <Alert className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="nome">Nome completo</Label>
-                <Input
-                  id="nome"
-                  value={formData.nome}
-                  onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                  placeholder="Digite seu nome completo"
-                  required
-                />
-              </div>
+            {success && (
+              <Alert className="border-green-200 bg-green-50">
+                <AlertDescription className="text-green-800">{success}</AlertDescription>
+              </Alert>
+            )}
 
-              <div>
-                <Label htmlFor="email">E-mail</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="seu@email.com"
-                  required
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="nome">Nome Completo</Label>
+              <Input
+                id="nome"
+                type="text"
+                placeholder="Seu nome completo"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                required
+                disabled={loading}
+              />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="senha">Senha</Label>
-                <div className="relative">
-                  <Input
-                    id="senha"
-                    type={showPassword ? "text" : "password"}
-                    value={formData.senha}
-                    onChange={(e) => setFormData({ ...formData, senha: e.target.value })}
-                    placeholder="Mínimo 6 caracteres"
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="confirmarSenha">Confirmar senha</Label>
-                <div className="relative">
-                  <Input
-                    id="confirmarSenha"
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={formData.confirmarSenha}
-                    onChange={(e) => setFormData({ ...formData, confirmarSenha: e.target.value })}
-                    placeholder="Digite a senha novamente"
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="seu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                disabled={loading}
+              />
             </div>
 
-            <div>
+            <div className="space-y-2">
+              <Label htmlFor="senha">Senha</Label>
+              <Input
+                id="senha"
+                type="password"
+                placeholder="Mínimo 6 caracteres"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                required
+                disabled={loading}
+                minLength={6}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmarSenha">Confirmar Senha</Label>
+              <Input
+                id="confirmarSenha"
+                type="password"
+                placeholder="Confirme sua senha"
+                value={confirmarSenha}
+                onChange={(e) => setConfirmarSenha(e.target.value)}
+                required
+                disabled={loading}
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label>Especialidades</Label>
-              <p className="text-sm text-gray-600 mb-3">Selecione os serviços que você realiza</p>
-              <div className="flex flex-wrap gap-2">
-                {especialidadesDisponiveis.map((especialidade) => (
-                  <Badge
-                    key={especialidade}
-                    variant={formData.especialidades.includes(especialidade) ? "default" : "outline"}
-                    className="cursor-pointer hover:bg-pink-100"
-                    onClick={() => toggleEspecialidade(especialidade)}
+              <div className="flex flex-wrap gap-2 mb-2">
+                {especialidadesDisponiveis.map((esp) => (
+                  <Button
+                    key={esp}
+                    type="button"
+                    variant={especialidades.includes(esp) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() =>
+                      especialidades.includes(esp) ? removerEspecialidade(esp) : adicionarEspecialidade(esp)
+                    }
+                    disabled={loading}
                   >
-                    {especialidade}
-                    {formData.especialidades.includes(especialidade) && <X className="w-3 h-3 ml-1" />}
-                  </Badge>
+                    {esp}
+                  </Button>
                 ))}
               </div>
+              {especialidades.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {especialidades.map((esp) => (
+                    <Badge key={esp} variant="secondary" className="text-xs">
+                      {esp}
+                      <button
+                        type="button"
+                        onClick={() => removerEspecialidade(esp)}
+                        className="ml-1 hover:text-red-500"
+                        disabled={loading}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div>
-              <Label>Cor da agenda</Label>
-              <p className="text-sm text-gray-600 mb-3">Escolha uma cor para identificar seus agendamentos</p>
+            <div className="space-y-2">
+              <Label>Cor da Agenda</Label>
               <div className="flex flex-wrap gap-2">
                 {coresDisponiveis.map((cor) => (
                   <button
-                    key={cor}
+                    key={cor.valor}
                     type="button"
                     className={`w-8 h-8 rounded-full border-2 ${
-                      formData.corAgenda === cor ? "border-gray-800" : "border-gray-300"
+                      corAgenda === cor.valor ? "border-gray-800" : "border-gray-300"
                     }`}
-                    style={{ backgroundColor: cor }}
-                    onClick={() => setFormData({ ...formData, corAgenda: cor })}
+                    style={{ backgroundColor: cor.valor }}
+                    onClick={() => setCorAgenda(cor.valor)}
+                    disabled={loading}
+                    title={cor.nome}
                   />
                 ))}
               </div>
             </div>
 
-            <Button
-              type="submit"
-              className="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700"
-              disabled={loading}
-            >
-              {loading ? "Criando conta..." : "Criar conta"}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Cadastrando...
+                </>
+              ) : (
+                "Cadastrar"
+              )}
             </Button>
           </form>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               Já tem uma conta?{" "}
-              <Link href="/login" className="text-pink-600 hover:text-pink-700 font-medium">
+              <Link href="/login" className="text-pink-600 hover:text-pink-500 font-medium">
                 Faça login aqui
               </Link>
             </p>
-          </div>
-
-          <div className="mt-4 text-center">
-            <Link href="/" className="text-sm text-gray-500 hover:text-gray-700">
-              ← Voltar para o site
-            </Link>
           </div>
         </CardContent>
       </Card>

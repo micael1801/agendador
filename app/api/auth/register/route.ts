@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { hashPassword } from "@/lib/auth"
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const { nome, email, senha, especialidades, corAgenda } = await request.json()
 
@@ -10,24 +10,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Nome, email e senha são obrigatórios" }, { status: 400 })
     }
 
-    // Verificar se usuário já existe
+    // Verificar se email já existe
     const usuarioExistente = await prisma.usuario.findUnique({
       where: { email },
     })
 
     if (usuarioExistente) {
-      return NextResponse.json({ error: "Email já está em uso" }, { status: 409 })
+      return NextResponse.json({ error: "Email já está em uso" }, { status: 400 })
     }
 
     // Hash da senha
     const senhaHash = await hashPassword(senha)
 
+    // Buscar primeira empresa (assumindo single-tenant por enquanto)
+    const empresa = await prisma.empresa.findFirst()
+    if (!empresa) {
+      return NextResponse.json({ error: "Nenhuma empresa encontrada" }, { status: 400 })
+    }
+
     // Criar usuário e atendente em uma transação
-    const result = await prisma.$transaction(async (tx) => {
+    const resultado = await prisma.$transaction(async (tx) => {
       // Criar usuário
       const usuario = await tx.usuario.create({
         data: {
-          empresaId: 1, // Por enquanto fixo
+          empresaId: empresa.id,
           nome,
           email,
           senhaHash,
@@ -39,7 +45,7 @@ export async function POST(request: Request) {
       const atendente = await tx.atendente.create({
         data: {
           usuarioId: usuario.id,
-          empresaId: 1,
+          empresaId: empresa.id,
           nome,
           especialidades: especialidades || [],
           corAgenda: corAgenda || "#3b82f6",
@@ -51,12 +57,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Usuário criado com sucesso",
+      message: "Atendente cadastrado com sucesso",
       user: {
-        id: result.usuario.id,
-        nome: result.usuario.nome,
-        email: result.usuario.email,
-        atendenteId: result.atendente.id,
+        id: resultado.usuario.id,
+        nome: resultado.usuario.nome,
+        email: resultado.usuario.email,
+        atendente: resultado.atendente,
       },
     })
   } catch (error) {
