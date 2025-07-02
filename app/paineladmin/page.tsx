@@ -30,7 +30,6 @@ interface Agendamento {
 export default function PainelAdminPage() {
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
   const [carregando, setCarregando] = useState(true)
-  const [mounted, setMounted] = useState(false)
   const [stats, setStats] = useState({
     totalAgendamentos: 0,
     agendamentosHoje: 0,
@@ -39,16 +38,9 @@ export default function PainelAdminPage() {
   })
   const router = useRouter()
 
-  // Evita problemas de hidratação
   useEffect(() => {
-    setMounted(true)
+    carregarDados()
   }, [])
-
-  useEffect(() => {
-    if (mounted) {
-      carregarDados()
-    }
-  }, [mounted])
 
   const carregarDados = async () => {
     try {
@@ -86,30 +78,18 @@ export default function PainelAdminPage() {
     try {
       await fetch("/api/auth/logout", { method: "POST" })
       toast.success("Logout realizado com sucesso!")
-      router.push("/login")
-      router.refresh()
+      window.location.href = "/login"
     } catch (error) {
       console.error("Erro no logout:", error)
       toast.error("Erro ao fazer logout")
     }
   }
 
-  // Função de formatação que evita problemas de hidratação
   const formatarData = (data: string) => {
-    if (!mounted) return "" // Evita renderização no servidor
-
-    try {
-      const date = new Date(data)
-      return date.toLocaleString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    } catch (error) {
-      return data
-    }
+    const date = new Date(data)
+    return (
+      date.toLocaleDateString("pt-BR") + " " + date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+    )
   }
 
   const getStatusColor = (status: string) => {
@@ -123,11 +103,6 @@ export default function PainelAdminPage() {
       default:
         return "bg-gray-100 text-gray-800"
     }
-  }
-
-  // Não renderiza nada até estar montado no cliente
-  if (!mounted) {
-    return null
   }
 
   if (carregando) {
@@ -210,9 +185,7 @@ export default function PainelAdminPage() {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Faturamento</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    R$ {stats.faturamentoMes.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </p>
+                  <p className="text-2xl font-bold text-gray-900">R$ {stats.faturamentoMes.toFixed(2)}</p>
                 </div>
               </div>
             </CardContent>
@@ -267,9 +240,7 @@ export default function PainelAdminPage() {
                     </div>
                     <div className="flex items-center space-x-3">
                       <Badge className={getStatusColor(agendamento.status)}>{agendamento.status}</Badge>
-                      <p className="font-medium text-gray-900">
-                        R$ {agendamento.servico.preco.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </p>
+                      <p className="font-medium text-gray-900">R$ {agendamento.servico.preco.toFixed(2)}</p>
                     </div>
                   </div>
                 ))}

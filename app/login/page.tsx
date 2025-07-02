@@ -23,23 +23,21 @@ export default function LoginPage() {
     setCarregando(true)
 
     try {
-      console.log("Enviando dados de login:", { email })
-
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, senha }),
+        credentials: "include",
       })
 
       const data = await response.json()
-      console.log("Resposta do login:", data)
 
       if (response.ok && data.success) {
         toast.success("Login realizado com sucesso!")
-        router.push("/paineladmin")
-        router.refresh()
+        // Usar window.location para garantir redirecionamento
+        window.location.href = "/paineladmin"
       } else {
         toast.error(data.error || "Erro ao fazer login")
       }
