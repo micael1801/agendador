@@ -47,7 +47,6 @@ export async function POST(request: NextRequest) {
     // Criar resposta com cookie
     const response = NextResponse.json({
       success: true,
-      message: "Login realizado com sucesso",
       user: {
         id: usuario.id,
         nome: usuario.nome,
@@ -63,7 +62,6 @@ export async function POST(request: NextRequest) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7, // 7 dias
-      path: "/",
     })
 
     return response

@@ -1,26 +1,22 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
+import { Scissors, ArrowLeft, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Calendar } from "@/components/ui/calendar"
-import { Clock, User } from "lucide-react"
-import { format } from "date-fns"
-import { ptBR } from "date-fns/locale"
-import { cn } from "@/lib/utils"
-import { toast } from "@/hooks/use-toast"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import Link from "next/link"
 
 interface Servico {
   id: number
   nome: string
-  descricao: string
   preco: number
   duracaoMinutos: number
+  descricao?: string
 }
 
 interface Atendente {
@@ -30,483 +26,578 @@ interface Atendente {
   corAgenda: string
 }
 
-interface HorarioDisponivel {
+interface TimeSlot {
   time: string
   available: boolean
 }
 
 export default function AgendarPage() {
   const [step, setStep] = useState(1)
-  const [servicos, setServicos] = useState<Servico[]>([])
-  const [atendentes, setAtendentes] = useState<Atendente[]>([])
-  const [horariosDisponiveis, setHorariosDisponiveis] = useState<HorarioDisponivel[]>([])
-  const [loading, setLoading] = useState(false)
-
-  // Estados do formulário
-  const [servicoSelecionado, setServicoSelecionado] = useState<Servico | null>(null)
-  const [atendenteSelecionado, setAtendenteSelecionado] = useState<Atendente | null>(null)
-  const [dataSelecionada, setDataSelecionada] = useState<Date>()
-  const [horarioSelecionado, setHorarioSelecionado] = useState<string>("")
-  const [clienteData, setClienteData] = useState({
+  const [selectedService, setSelectedService] = useState<Servico | null>(null)
+  const [selectedAtendente, setSelectedAtendente] = useState<Atendente | null>(null)
+  const [selectedDate, setSelectedDate] = useState<string>("")
+  const [selectedTime, setSelectedTime] = useState<string>("")
+  const [clientData, setClientData] = useState({
     nome: "",
     telefone: "",
     email: "",
     observacoes: "",
   })
 
-  // Carregar serviços
-  useEffect(() => {
-    const carregarServicos = async () => {
-      try {
-        setLoading(true)
-        const response = await fetch("/api/servicos")
-        if (response.ok) {
-          const data = await response.json()
-          setServicos(data)
-        } else {
-          toast({
-            title: "Erro",
-            description: "Não foi possível carregar os serviços",
-            variant: "destructive",
-          })
-        }
-      } catch (error) {
-        console.error("Erro ao carregar serviços:", error)
-        toast({
-          title: "Erro",
-          description: "Erro de conexão ao carregar serviços",
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
+  const [servicos, setServicos] = useState<Servico[]>([])
+  const [atendentes, setAtendentes] = useState<Atendente[]>([])
+  const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string>("")
 
-    carregarServicos()
+  // Carregar serviços ao montar o componente
+  useEffect(() => {
+    loadServicos()
   }, [])
 
   // Carregar atendentes quando serviço for selecionado
   useEffect(() => {
-    if (servicoSelecionado) {
-      const carregarAtendentes = async () => {
-        try {
-          setLoading(true)
-          const response = await fetch(`/api/atendentes?servicoId=${servicoSelecionado.id}`)
-          if (response.ok) {
-            const data = await response.json()
-            setAtendentes(data)
-          }
-        } catch (error) {
-          console.error("Erro ao carregar atendentes:", error)
-        } finally {
-          setLoading(false)
-        }
-      }
-
-      carregarAtendentes()
+    if (selectedService) {
+      loadAtendentes(selectedService.id)
     }
-  }, [servicoSelecionado])
+  }, [selectedService])
 
-  // Carregar horários disponíveis
+  // Gerar horários disponíveis quando serviço, atendente e data forem selecionados
   useEffect(() => {
-    if (servicoSelecionado && atendenteSelecionado && dataSelecionada) {
-      const carregarHorarios = async () => {
-        try {
-          setLoading(true)
-          const dataFormatada = format(dataSelecionada, "yyyy-MM-dd")
-          const response = await fetch(
-            `/api/horarios-disponiveis?servicoId=${servicoSelecionado.id}&atendenteId=${atendenteSelecionado.id}&data=${dataFormatada}`,
-          )
-          if (response.ok) {
-            const data = await response.json()
-            setHorariosDisponiveis(data)
-          }
-        } catch (error) {
-          console.error("Erro ao carregar horários:", error)
-        } finally {
-          setLoading(false)
-        }
-      }
-
-      carregarHorarios()
+    if (selectedService && selectedAtendente && selectedDate) {
+      loadAvailableSlots()
     }
-  }, [servicoSelecionado, atendenteSelecionado, dataSelecionada])
+  }, [selectedService, selectedAtendente, selectedDate])
 
-  const handleServicoSelect = (servico: Servico) => {
-    setServicoSelecionado(servico)
-    setAtendenteSelecionado(null)
-    setDataSelecionada(undefined)
-    setHorarioSelecionado("")
+  const loadServicos = async () => {
+    try {
+      const response = await fetch("/api/servicos")
+      if (response.ok) {
+        const data = await response.json()
+        setServicos(data)
+      } else {
+        throw new Error("Erro ao carregar serviços")
+      }
+    } catch (error) {
+      console.error("Erro ao carregar serviços:", error)
+      setError("Erro ao carregar serviços")
+    }
+  }
+
+  const loadAtendentes = async (servicoId: number) => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/atendentes?servicoId=${servicoId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setAtendentes(data)
+      } else {
+        throw new Error("Erro ao carregar atendentes")
+      }
+    } catch (error) {
+      console.error("Erro ao carregar atendentes:", error)
+      setError("Erro ao carregar profissionais")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadAvailableSlots = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(
+        `/api/horarios-disponiveis?atendenteId=${selectedAtendente?.id}&data=${selectedDate}&servicoId=${selectedService?.id}`,
+      )
+      if (response.ok) {
+        const data = await response.json()
+        setAvailableSlots(data)
+      } else {
+        throw new Error("Erro ao carregar horários")
+      }
+    } catch (error) {
+      console.error("Erro ao carregar horários:", error)
+      setError("Erro ao carregar horários disponíveis")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleServiceSelect = (servico: Servico) => {
+    setSelectedService(servico)
+    setSelectedAtendente(null)
+    setSelectedDate("")
+    setSelectedTime("")
+    setError("")
     setStep(2)
   }
 
   const handleAtendenteSelect = (atendente: Atendente) => {
-    setAtendenteSelecionado(atendente)
-    setDataSelecionada(undefined)
-    setHorarioSelecionado("")
+    setSelectedAtendente(atendente)
+    setSelectedDate("")
+    setSelectedTime("")
     setStep(3)
   }
 
-  const handleDataSelect = (data: Date | undefined) => {
-    setDataSelecionada(data)
-    setHorarioSelecionado("")
-    if (data) {
-      setStep(4)
-    }
+  const handleDateSelect = (date: string) => {
+    setSelectedDate(date)
+    setSelectedTime("")
+    setStep(4)
   }
 
-  const handleHorarioSelect = (horario: string) => {
-    setHorarioSelecionado(horario)
+  const handleTimeSelect = (time: string) => {
+    setSelectedTime(time)
     setStep(5)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!servicoSelecionado || !atendenteSelecionado || !dataSelecionada || !horarioSelecionado) {
-      toast({
-        title: "Erro",
-        description: "Por favor, complete todas as etapas do agendamento",
-        variant: "destructive",
-      })
+  const handleSubmit = async () => {
+    if (!selectedService || !selectedAtendente || !selectedDate || !selectedTime) {
+      setError("Dados incompletos para o agendamento")
       return
     }
 
-    if (!clienteData.nome || !clienteData.telefone) {
-      toast({
-        title: "Erro",
-        description: "Nome e telefone são obrigatórios",
-        variant: "destructive",
-      })
-      return
-    }
+    setLoading(true)
+    setError("")
 
     try {
-      setLoading(true)
-      const dataAgendamento = format(dataSelecionada, "yyyy-MM-dd")
-
       const response = await fetch("/api/agendamentos", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          servicoId: servicoSelecionado.id,
-          atendenteId: atendenteSelecionado.id,
-          dataAgendamento,
-          horaInicio: horarioSelecionado,
-          clienteData,
+          servicoId: selectedService.id,
+          atendenteId: selectedAtendente.id,
+          dataAgendamento: selectedDate,
+          horaInicio: selectedTime,
+          clienteData: clientData,
         }),
       })
 
-      if (response.ok) {
-        const agendamento = await response.json()
-        toast({
-          title: "Sucesso!",
-          description: "Agendamento realizado com sucesso",
-        })
+      const result = await response.json()
 
-        // Reset do formulário
-        setStep(1)
-        setServicoSelecionado(null)
-        setAtendenteSelecionado(null)
-        setDataSelecionada(undefined)
-        setHorarioSelecionado("")
-        setClienteData({
-          nome: "",
-          telefone: "",
-          email: "",
-          observacoes: "",
-        })
+      if (response.ok) {
+        setStep(6)
       } else {
-        const error = await response.json()
-        toast({
-          title: "Erro",
-          description: error.error || "Erro ao realizar agendamento",
-          variant: "destructive",
-        })
+        setError(result.error || "Erro ao criar agendamento")
       }
     } catch (error) {
       console.error("Erro ao agendar:", error)
-      toast({
-        title: "Erro",
-        description: "Erro de conexão ao realizar agendamento",
-        variant: "destructive",
-      })
+      setError("Erro de conexão. Tente novamente.")
     } finally {
       setLoading(false)
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50 p-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Salão Exemplo</h1>
-          <p className="text-gray-600">Agende seu horário de forma rápida e fácil</p>
-        </div>
+  const getMinDate = () => {
+    const today = new Date()
+    return today.toISOString().split("T")[0]
+  }
 
-        {/* Progress Steps */}
-        <div className="flex justify-center mb-8">
-          <div className="flex items-center space-x-4">
+  const getMaxDate = () => {
+    const maxDate = new Date()
+    maxDate.setDate(maxDate.getDate() + 30)
+    return maxDate.toISOString().split("T")[0]
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <Link href="/" className="flex items-center space-x-2 text-gray-600 hover:text-gray-900">
+              <ArrowLeft className="w-5 h-5" />
+              <span>Voltar</span>
+            </Link>
+            <div className="flex items-center space-x-4">
+              <div className="w-8 h-8 bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">S</span>
+              </div>
+              <span className="font-semibold">Salão Exemplo</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Progress Bar */}
+      <div className="bg-white border-b">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-center space-x-4">
             {[1, 2, 3, 4, 5].map((stepNumber) => (
               <div key={stepNumber} className="flex items-center">
                 <div
-                  className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium",
-                    step >= stepNumber ? "bg-pink-500 text-white" : "bg-gray-200 text-gray-500",
-                  )}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    step >= stepNumber
+                      ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white"
+                      : "bg-gray-200 text-gray-500"
+                  }`}
                 >
-                  {stepNumber}
+                  {step > stepNumber ? <Check className="w-4 h-4" /> : stepNumber}
                 </div>
                 {stepNumber < 5 && (
-                  <div className={cn("w-8 h-0.5 mx-2", step > stepNumber ? "bg-pink-500" : "bg-gray-200")} />
+                  <div
+                    className={`w-12 h-1 mx-2 ${
+                      step > stepNumber ? "bg-gradient-to-r from-pink-500 to-purple-600" : "bg-gray-200"
+                    }`}
+                  />
                 )}
               </div>
             ))}
           </div>
-        </div>
-
-        {/* Step Labels */}
-        <div className="flex justify-center mb-8">
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
+          <div className="text-center mt-2">
+            <span className="text-sm text-gray-600">
               {step === 1 && "Escolha o serviço"}
-              {step === 2 && "Escolha o profissional"}
+              {step === 2 && "Selecione o profissional"}
               {step === 3 && "Escolha a data"}
-              {step === 4 && "Escolha o horário"}
-              {step === 5 && "Seus dados"}
-            </p>
+              {step === 4 && "Selecione o horário"}
+              {step === 5 && "Confirme seus dados"}
+              {step === 6 && "Agendamento confirmado!"}
+            </span>
           </div>
         </div>
+      </div>
 
-        {/* Content */}
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle>
-              {step === 1 && "Escolha o Serviço"}
-              {step === 2 && "Escolha o Profissional"}
-              {step === 3 && "Escolha a Data"}
-              {step === 4 && "Escolha o Horário"}
-              {step === 5 && "Finalize seu Agendamento"}
-            </CardTitle>
-            <CardDescription>
-              {step === 1 && "Selecione o serviço que deseja agendar"}
-              {step === 2 && "Escolha o profissional de sua preferência"}
-              {step === 3 && "Selecione a data desejada"}
-              {step === 4 && "Escolha o melhor horário para você"}
-              {step === 5 && "Preencha seus dados para confirmar"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {/* Step 1: Serviços */}
-            {step === 1 && (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {loading ? (
-                  <div className="col-span-full text-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500 mx-auto"></div>
-                    <p className="mt-2 text-gray-600">Carregando serviços...</p>
-                  </div>
-                ) : servicos.length === 0 ? (
-                  <div className="col-span-full text-center py-8">
-                    <p className="text-gray-600">Nenhum serviço disponível</p>
-                  </div>
-                ) : (
-                  servicos.map((servico) => (
-                    <Card
-                      key={servico.id}
-                      className="cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-pink-200"
-                      onClick={() => handleServicoSelect(servico)}
-                    >
-                      <CardContent className="p-4">
-                        <h3 className="font-semibold text-lg mb-2">{servico.nome}</h3>
-                        <p className="text-gray-600 text-sm mb-3">{servico.descricao}</p>
-                        <div className="flex justify-between items-center">
-                          <span className="text-pink-600 font-bold">R$ {servico.preco.toFixed(2)}</span>
-                          <span className="text-gray-500 text-sm flex items-center">
-                            <Clock className="w-4 h-4 mr-1" />
-                            {servico.duracaoMinutos}min
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8">
+        {error && (
+          <Alert className="mb-6 max-w-2xl mx-auto">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Step 1: Escolher Serviço */}
+        {step === 1 && (
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl font-bold text-center text-gray-900 mb-8">Escolha o Serviço</h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {servicos.map((servico) => (
+                <Card
+                  key={servico.id}
+                  className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-pink-200"
+                  onClick={() => handleServiceSelect(servico)}
+                >
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <Scissors className="w-8 h-8 text-pink-600" />
+                      <Badge variant="secondary">{servico.duracaoMinutos} min</Badge>
+                    </div>
+                    <CardTitle className="text-lg">{servico.nome}</CardTitle>
+                    <CardDescription>{servico.descricao}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-pink-600">R$ {servico.preco.toFixed(2)}</div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Escolher Atendente */}
+        {step === 2 && selectedService && (
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Escolha o Profissional</h2>
+              <p className="text-gray-600">
+                Para o serviço: <strong>{selectedService.nome}</strong>
+              </p>
+            </div>
+
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600 mx-auto"></div>
+                <p className="mt-4 text-gray-600">Carregando profissionais...</p>
               </div>
-            )}
-
-            {/* Step 2: Atendentes */}
-            {step === 2 && (
-              <div className="space-y-4">
-                {loading ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500 mx-auto"></div>
-                    <p className="mt-2 text-gray-600">Carregando profissionais...</p>
-                  </div>
-                ) : atendentes.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-600">Nenhum profissional disponível para este serviço</p>
-                  </div>
-                ) : (
-                  atendentes.map((atendente) => (
-                    <Card
-                      key={atendente.id}
-                      className="cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-pink-200"
-                      onClick={() => handleAtendenteSelect(atendente)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-center space-x-4">
-                          <div
-                            className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold"
-                            style={{ backgroundColor: atendente.corAgenda }}
-                          >
-                            <User className="w-6 h-6" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-lg">{atendente.nome}</h3>
-                            <p className="text-gray-600 text-sm">
-                              Especialidades: {atendente.especialidades.join(", ")}
-                            </p>
-                          </div>
+            ) : atendentes.length > 0 ? (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {atendentes.map((atendente) => (
+                  <Card
+                    key={atendente.id}
+                    className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-pink-200"
+                    onClick={() => handleAtendenteSelect(atendente)}
+                  >
+                    <CardHeader className="text-center">
+                      <div
+                        className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-white font-bold text-xl"
+                        style={{ backgroundColor: atendente.corAgenda }}
+                      >
+                        {atendente.nome
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </div>
+                      <CardTitle>{atendente.nome}</CardTitle>
+                      <CardDescription>
+                        <div className="flex flex-wrap gap-1 justify-center mt-2">
+                          {atendente.especialidades.map((esp, index) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {esp}
+                            </Badge>
+                          ))}
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+                ))}
               </div>
+            ) : (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum profissional disponível</h3>
+                  <p className="text-gray-600">
+                    Não encontramos profissionais disponíveis para este serviço no momento.
+                  </p>
+                  <Button onClick={() => setStep(1)} variant="outline" className="mt-4">
+                    Escolher outro serviço
+                  </Button>
+                </CardContent>
+              </Card>
             )}
+          </div>
+        )}
 
-            {/* Step 3: Data */}
-            {step === 3 && (
-              <div className="flex justify-center">
-                <Calendar
-                  mode="single"
-                  selected={dataSelecionada}
-                  onSelect={handleDataSelect}
-                  disabled={(date) => date < new Date() || date.getDay() === 0}
-                  locale={ptBR}
-                  className="rounded-md border"
+        {/* Step 3: Escolher Data */}
+        {step === 3 && selectedService && selectedAtendente && (
+          <div className="max-w-2xl mx-auto">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Escolha a Data</h2>
+              <p className="text-gray-600">
+                <strong>{selectedService.nome}</strong> com <strong>{selectedAtendente.nome}</strong>
+              </p>
+            </div>
+            <Card>
+              <CardContent className="p-6">
+                <Label htmlFor="date">Selecione a data:</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  min={getMinDate()}
+                  max={getMaxDate()}
+                  value={selectedDate}
+                  onChange={(e) => handleDateSelect(e.target.value)}
+                  className="mt-2"
                 />
-              </div>
-            )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-            {/* Step 4: Horários */}
-            {step === 4 && (
-              <div className="space-y-4">
+        {/* Step 4: Escolher Horário */}
+        {step === 4 && selectedDate && (
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Escolha o Horário</h2>
+              <p className="text-gray-600">
+                Data: <strong>{new Date(selectedDate + "T00:00:00").toLocaleDateString("pt-BR")}</strong>
+              </p>
+            </div>
+            <Card>
+              <CardContent className="p-6">
                 {loading ? (
                   <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500 mx-auto"></div>
-                    <p className="mt-2 text-gray-600">Carregando horários...</p>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600 mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Carregando horários...</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                    {horariosDisponiveis.map((horario) => (
+                    {availableSlots.map((slot) => (
                       <Button
-                        key={horario.time}
-                        variant={horario.available ? "outline" : "secondary"}
-                        disabled={!horario.available}
-                        onClick={() => horario.available && handleHorarioSelect(horario.time)}
-                        className={cn(
-                          "h-12",
-                          horario.available
-                            ? "hover:bg-pink-50 hover:border-pink-300"
-                            : "opacity-50 cursor-not-allowed",
-                        )}
+                        key={slot.time}
+                        variant={selectedTime === slot.time ? "default" : "outline"}
+                        disabled={!slot.available}
+                        onClick={() => handleTimeSelect(slot.time)}
+                        className={`${
+                          selectedTime === slot.time ? "bg-gradient-to-r from-pink-500 to-purple-600" : ""
+                        } ${!slot.available ? "opacity-50 cursor-not-allowed" : ""}`}
                       >
-                        {horario.time}
+                        {slot.time}
                       </Button>
                     ))}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Step 5: Dados do Cliente */}
+        {step === 5 && (
+          <div className="max-w-2xl mx-auto">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Confirme seus Dados</h2>
+            </div>
+
+            {/* Resumo do Agendamento */}
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle>Resumo do Agendamento</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Serviço:</span>
+                    <span className="font-medium">{selectedService?.nome}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Profissional:</span>
+                    <span className="font-medium">{selectedAtendente?.nome}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Data:</span>
+                    <span className="font-medium">
+                      {selectedDate && new Date(selectedDate + "T00:00:00").toLocaleDateString("pt-BR")}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Horário:</span>
+                    <span className="font-medium">{selectedTime}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Duração:</span>
+                    <span className="font-medium">{selectedService?.duracaoMinutos} minutos</span>
+                  </div>
+                  <div className="flex justify-between text-lg font-bold border-t pt-2">
+                    <span>Valor:</span>
+                    <span className="text-pink-600">R$ {selectedService?.preco.toFixed(2)}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Formulário de Dados */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Seus Dados</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="nome">Nome completo *</Label>
+                  <Input
+                    id="nome"
+                    value={clientData.nome}
+                    onChange={(e) => setClientData({ ...clientData, nome: e.target.value })}
+                    placeholder="Digite seu nome completo"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="telefone">Telefone/WhatsApp *</Label>
+                  <Input
+                    id="telefone"
+                    value={clientData.telefone}
+                    onChange={(e) => setClientData({ ...clientData, telefone: e.target.value })}
+                    placeholder="(11) 99999-9999"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="email">E-mail</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={clientData.email}
+                    onChange={(e) => setClientData({ ...clientData, email: e.target.value })}
+                    placeholder="seu@email.com"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="observacoes">Observações</Label>
+                  <Textarea
+                    id="observacoes"
+                    value={clientData.observacoes}
+                    onChange={(e) => setClientData({ ...clientData, observacoes: e.target.value })}
+                    placeholder="Alguma observação especial?"
+                    rows={3}
+                  />
+                </div>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!clientData.nome || !clientData.telefone || loading}
+                  className="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700"
+                  size="lg"
+                >
+                  {loading ? "Agendando..." : "Confirmar Agendamento"}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Step 6: Confirmação */}
+        {step === 6 && (
+          <div className="max-w-2xl mx-auto text-center">
+            <div className="mb-8">
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Check className="w-10 h-10 text-green-600" />
               </div>
-            )}
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Agendamento Confirmado!</h2>
+              <p className="text-gray-600">Seu horário foi reservado com sucesso.</p>
+            </div>
 
-            {/* Step 5: Dados do Cliente */}
-            {step === 5 && (
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Resumo do Agendamento */}
-                <Card className="bg-pink-50 border-pink-200">
-                  <CardContent className="p-4">
-                    <h3 className="font-semibold mb-3">Resumo do Agendamento</h3>
-                    <div className="space-y-2 text-sm">
-                      <p>
-                        <strong>Serviço:</strong> {servicoSelecionado?.nome}
-                      </p>
-                      <p>
-                        <strong>Profissional:</strong> {atendenteSelecionado?.nome}
-                      </p>
-                      <p>
-                        <strong>Data:</strong>{" "}
-                        {dataSelecionada && format(dataSelecionada, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                      </p>
-                      <p>
-                        <strong>Horário:</strong> {horarioSelecionado}
-                      </p>
-                      <p>
-                        <strong>Valor:</strong> R$ {servicoSelecionado?.preco.toFixed(2)}
-                      </p>
+            <Card>
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="text-left space-y-2">
+                    <h3 className="font-semibold text-lg mb-4">Detalhes do seu agendamento:</h3>
+                    <div className="flex justify-between">
+                      <span>Serviço:</span>
+                      <span className="font-medium">{selectedService?.nome}</span>
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="flex justify-between">
+                      <span>Profissional:</span>
+                      <span className="font-medium">{selectedAtendente?.nome}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Data:</span>
+                      <span className="font-medium">
+                        {selectedDate && new Date(selectedDate + "T00:00:00").toLocaleDateString("pt-BR")}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Horário:</span>
+                      <span className="font-medium">{selectedTime}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Cliente:</span>
+                      <span className="font-medium">{clientData.nome}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Contato:</span>
+                      <span className="font-medium">{clientData.telefone}</span>
+                    </div>
+                  </div>
 
-                {/* Formulário de Dados */}
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="nome">Nome *</Label>
-                    <Input
-                      id="nome"
-                      value={clienteData.nome}
-                      onChange={(e) => setClienteData({ ...clienteData, nome: e.target.value })}
-                      placeholder="Seu nome completo"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="telefone">Telefone *</Label>
-                    <Input
-                      id="telefone"
-                      value={clienteData.telefone}
-                      onChange={(e) => setClienteData({ ...clienteData, telefone: e.target.value })}
-                      placeholder="(11) 99999-9999"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="email">E-mail</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={clienteData.email}
-                      onChange={(e) => setClienteData({ ...clienteData, email: e.target.value })}
-                      placeholder="seu@email.com"
-                    />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="observacoes">Observações</Label>
-                    <Textarea
-                      id="observacoes"
-                      value={clienteData.observacoes}
-                      onChange={(e) => setClienteData({ ...clienteData, observacoes: e.target.value })}
-                      placeholder="Alguma observação especial?"
-                      rows={3}
-                    />
+                  <div className="border-t pt-4">
+                    <p className="text-sm text-gray-600 mb-4">
+                      Você receberá uma confirmação por WhatsApp e/ou e-mail com os detalhes do agendamento e um link
+                      para reagendar ou cancelar, se necessário.
+                    </p>
+                    <div className="flex gap-4">
+                      <Button asChild className="flex-1">
+                        <Link href="/">Voltar ao Início</Link>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1 bg-transparent"
+                        onClick={() => {
+                          setStep(1)
+                          setSelectedService(null)
+                          setSelectedAtendente(null)
+                          setSelectedDate("")
+                          setSelectedTime("")
+                          setClientData({ nome: "", telefone: "", email: "", observacoes: "" })
+                        }}
+                      >
+                        Agendar Novamente
+                      </Button>
+                    </div>
                   </div>
                 </div>
-
-                <div className="flex gap-4">
-                  <Button type="button" variant="outline" onClick={() => setStep(4)} className="flex-1">
-                    Voltar
-                  </Button>
-                  <Button type="submit" disabled={loading} className="flex-1 bg-pink-500 hover:bg-pink-600">
-                    {loading ? "Agendando..." : "Confirmar Agendamento"}
-                  </Button>
-                </div>
-              </form>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </main>
     </div>
   )
 }

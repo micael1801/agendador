@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -30,23 +31,16 @@ export default function LoginPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, senha }),
-        credentials: "include", // Importante para cookies
       })
 
       const data = await response.json()
-      console.log("Resposta do login:", { status: response.status, data })
+      console.log("Resposta do login:", data)
 
       if (response.ok && data.success) {
         toast.success("Login realizado com sucesso!")
-
-        // Aguardar um pouco para garantir que o cookie foi definido
-        setTimeout(() => {
-          console.log("Redirecionando para /paineladmin")
-          router.push("/paineladmin")
-          router.refresh()
-        }, 100)
+        router.push("/paineladmin")
+        router.refresh()
       } else {
-        console.error("Erro no login:", data)
         toast.error(data.error || "Erro ao fazer login")
       }
     } catch (error) {
